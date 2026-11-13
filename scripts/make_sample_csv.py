@@ -1,0 +1,44 @@
+"""Generate a fake hotel Sample CSV with Faker. No real data is involved.
+
+Usage: uv run python scripts/make_sample_csv.py [output.csv] [rows]
+"""
+
+import random
+import sys
+from pathlib import Path
+
+import pandas as pd
+from faker import Faker
+
+
+def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
+    fake = Faker()
+    Faker.seed(seed)
+    rng = random.Random(seed)
+    countries = [fake.country() for _ in range(8)]
+    room_types = ["single", "double", "suite", "family"]
+    records = []
+    for _ in range(rows):
+        room = rng.choices(room_types, weights=[4, 8, 2, 3])[0]
+        nights = rng.randint(1, 14)
+        base = {"single": 80, "double": 120, "suite": 260, "family": 170}[room]
+        price = round(base * nights * rng.uniform(0.85, 1.2), 2)
+        records.append(
+            {
+                "nights": nights,
+                "adults": rng.randint(1, 4),
+                "room_type": room,
+                "country": rng.choice(countries),
+                "total_price": price,
+                "rating": rng.choice([None, round(rng.uniform(1, 5), 1)]),
+                "breakfast_included": rng.choice(["yes", "no"]),
+            }
+        )
+    return pd.DataFrame(records)
+
+
+if __name__ == "__main__":
+    out = Path(sys.argv[1] if len(sys.argv) > 1 else "hotel_sample.csv")
+    n = int(sys.argv[2]) if len(sys.argv) > 2 else 500
+    make_sample(n).to_csv(out, index=False)
+    print(f"Wrote {n} fake rows to {out}")
