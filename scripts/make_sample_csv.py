@@ -1,6 +1,7 @@
 """Generate a fake hotel Sample CSV with Faker. No real data is involved.
 
-Usage: uv run python scripts/make_sample_csv.py [output.csv] [rows]
+Usage: uv run python scripts/make_sample_csv.py [output.csv] [rows] [seed]
+The default seed is 42, so the same command always writes the same files.
 """
 
 import random
@@ -13,7 +14,10 @@ from faker import Faker
 
 
 def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
-    fake = Faker()
+    # German names and addresses: the tool fakes with the default (US) pool, so the
+    # fake input and fake output do not share names by chance. Umlauts also make
+    # the messy file really need cp1252.
+    fake = Faker("de_DE")
     Faker.seed(seed)
     rng = random.Random(seed)
     countries = [fake.country() for _ in range(8)]
@@ -58,7 +62,8 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
 if __name__ == "__main__":
     out = Path(sys.argv[1] if len(sys.argv) > 1 else "hotel_sample.csv")
     n = int(sys.argv[2]) if len(sys.argv) > 2 else 500
-    sample = make_sample(n)
+    seed = int(sys.argv[3]) if len(sys.argv) > 3 else 42
+    sample = make_sample(n, seed)
     sample.to_csv(out, index=False)
     # Same rows as a European Excel export: `;`, decimal comma, cp1252.
     messy = out.with_name(f"{out.stem}_messy{out.suffix}")

@@ -34,15 +34,18 @@ The CI workflow ([`tests.yml`](.github/workflows/tests.yml)) uses the same index
 
 ## 4. Quick start
 
-The repo has a script that makes a fake hotel CSV. Every value in it is fake. Run it from a clone of the repo:
+The repo has an [`examples/`](examples) folder with two fake hotel CSVs. Every value in them is 100% fake. Download them (or clone the repo), then run:
 
 ```
-uv run python scripts/make_sample_csv.py hotel_sample.csv
-csv-synth inspect hotel_sample.csv
-csv-synth generate hotel_sample.csv
+csv-synth inspect examples/hotel_sample.csv
+csv-synth generate examples/hotel_sample.csv
 ```
 
-This writes two files next to the input:
+`examples/hotel_sample_messy.csv` has the same rows in a European Excel style: `;` as separator, a decimal comma, dates like `31.12.2024` and cp1252 encoding. Use it to see the tool detect the format.
+
+The files were made by [`scripts/make_sample_csv.py`](scripts/make_sample_csv.py) with Faker and a fixed seed (42), so the script writes the same files every time. You do not need the script or Faker to use the tool.
+
+This writes two files next to the input, inside `examples/`:
 
 - `hotel_sample_settings.csv`: the Settings file (written by `inspect`, read by `generate`).
 - `hotel_sample_synthetic.csv`: the Synthetic CSV.
@@ -53,7 +56,7 @@ You can skip `inspect`. Then `generate` guesses the settings and writes them out
 
 ## 5. Workflow
 
-1. **Inspect.** `csv-synth inspect data.csv` guesses a type and an action for every column. It writes them to `data_settings.csv`. It also warns about columns that mix date styles.
+1. **Inspect.** `csv-synth inspect data.csv` guesses a type and an action for every column. It writes them to `data_settings.csv`. It warns if a date column mixes several date styles. It then leaves that column's format empty, so you must set it in the Settings file.
 2. **Edit.** Open the Settings file in Excel or a text editor. Fix wrong types. Drop columns you do not need. Mark secret labels as `disguise`.
 3. **Generate.** `csv-synth generate data.csv` reads the Settings file and writes `data_synthetic.csv`.
 
@@ -110,7 +113,7 @@ The tool finds personal data by looking at the values, not only the column names
 | `--seed <n>` | generate | Random, and printed | Makes the output repeatable |
 | `--fit-rows <n>` | generate | 100,000 | Learn from a random sample of this many rows if the input is larger |
 | `--rare-threshold <n>` | generate | 5 | Labels seen in fewer rows become "Other" |
-| `--disguise-all` | generate | off | Disguise every `category` column. A written Settings file records `disguise` for them |
+| `--disguise-all` | generate | off | Disguise every `category` column. When `generate` writes the Settings file, it records `disguise` for them. A Settings file that already exists is not changed |
 | `--delimiter <c>` | both | Detected | Separator of the input |
 | `--encoding <name>` | both | Detected (UTF-8, then cp1252) | Encoding of the input |
 | `--decimal <c>` | both | Detected | Decimal mark of the input (`,` or `.`) |
@@ -148,9 +151,9 @@ Run `csv-synth inspect --help` or `csv-synth generate --help` for the same list 
 
 - Column names stay visible. Common category labels stay visible, unless you disguise them. Overall patterns stay visible. Check the output before you share it.
 - **This tool is not a legal guarantee of anonymisation**, for example under the GDPR. Follow your own organisation's rules.
-- The tool writes only the Synthetic CSV and the Settings file next to your data. But the SDV library it uses copies a small settings file for its own logging into your user data folder (for example `%LOCALAPPDATA%\sdv-dev\sdv` on Windows). It holds no data from your file. A test fails if SDV ever starts writing a log file ([test](tests/test_generate.py)).
-- If your output encoding cannot hold a character, the tool replaces it with `?` and warns you with the count.
-- If a date column is ambiguous (every day is 12 or less, such as `03/04/2024`), the tool assumes month first. It warns you and names the column. Set the right format in the Settings file.
+- The tool writes only the Synthetic CSV and the Settings file next to your data. But the SDV library it uses copies a small settings file for its own logging into your user data folder (for example `%LOCALAPPDATA%\sdv-dev\sdv` on Windows). It holds no data from your file. The linked test only checks that a run adds no other files to the data folder ([test](tests/test_generate.py)). It does not check your user data folder.
+- If your output encoding cannot hold a character, the tool replaces it with `?` and warns you with the count (the warning does not name the character).
+- If a date column uses slashes and is ambiguous (in every date both numbers are 12 or less, such as `03/04/2024`), the tool assumes month first. It warns you and names the column. `inspect` and a `generate` that has no Settings file yet give this warning. Set the right format in the Settings file.
 
 ## 9. Limits
 
