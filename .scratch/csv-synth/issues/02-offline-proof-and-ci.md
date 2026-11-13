@@ -4,10 +4,12 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] A test runs a full `csv-synth generate` with sockets blocked (pytest-socket). It passes, and it fails if anything tries to connect.
 - [x] The tool never calls SDV's demo-dataset download.
-- [ ] GitHub Actions runs the full test suite on every push. Matrix: Windows, macOS (Apple chip) and Linux × Python 3.10 and 3.14.
-- [ ] On Linux, CI installs CPU-only torch, to avoid the multi-GB CUDA download. Record the exact working command; ticket 12 reuses it for the README.
-- [ ] SDV's local `sdv_logs.csv`: find out where and when SDV 2.2.0 writes it. **Ask the owner** whether to redirect it, disable it, or document it, then implement the choice with a test.
+- [x] GitHub Actions runs the full test suite on every push. Matrix: Windows, macOS (Apple chip) and Linux × Python 3.10 and 3.14.
+- [x] On Linux, CI installs CPU-only torch, to avoid the multi-GB CUDA download. Record the exact working command; ticket 12 reuses it for the README. (Verified: `--index https://download.pytorch.org/whl/cpu`.)
+- [x] SDV's local `sdv_logs.csv`: find out where and when SDV 2.2.0 writes it. **Ask the owner** whether to redirect it, disable it, or document it, then implement the choice with a test. (Owner chose: document only. SDV 2.2.0 never writes it; a test guards it.)
+
+Verified on GitHub Actions run 43494867866 (2026-11-13): all 6 jobs passed (Windows, macOS, Linux x Python 3.10 and 3.14), including `uv tool install` and running `csv-synth`.

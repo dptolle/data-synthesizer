@@ -6,7 +6,7 @@
 
 **Status:** done
 
-- [ ] The project uses uv's standard src layout. `uv tool install git+<repo>` installs a `csv-synth` command. Python 3.10–3.14. (install path not yet exercised; covered by CI in ticket 02)
+- [x] The project uses uv's standard src layout. `uv tool install git+<repo>` installs a `csv-synth` command. Python 3.10–3.14. (Verified by CI in ticket 02.)
 - [x] `sdv==2.2.0` is pinned exactly in the project dependencies. Typer is the CLI library.
 - [x] Only the `synth` module imports SDV. The module split follows the spec (`cli`, `csvio`, `settings`, `detect`, `privacy`, `synth`). Create a module only when it is first needed.
 - [x] `csv-synth generate <file>` writes `<input>_synthetic.csv` next to the input by default. `-o` sets another name.
