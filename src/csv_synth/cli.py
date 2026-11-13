@@ -56,6 +56,12 @@ def generate(
         min=1,
         help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 500.",
     ),
+    rare_threshold: int = typer.Option(
+        5,
+        "--rare-threshold",
+        min=1,
+        help="Category labels seen in fewer rows than this become \"Other\".",
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -81,12 +87,11 @@ def generate(
     total = len(real)
     out_rows = rows if rows is not None else total
     if total > fit_rows:
-        real = real.sample(n=fit_rows, random_state=seed)
         typer.echo(
             f"Note: the file is large, so the tool learns from a random sample "
             f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
         )
-    synthetic = synthesize(real, out_rows, seed)
+    synthetic = synthesize(real, out_rows, seed, rare_threshold, fit_rows)
     csvio.write_synthetic(synthetic, target)
 
     typer.echo(

@@ -17,6 +17,9 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
     rng = random.Random(seed)
     countries = [fake.country() for _ in range(8)]
     room_types = ["single", "double", "suite", "family"]
+    # Mostly shared labels, plus one-off corporate names (Rare categories).
+    accounts = ["walk-in", "online", "agency"]
+    one_offs = [fake.company() for _ in range(max(3, rows // 50))]
     records = []
     for _ in range(rows):
         room = rng.choices(room_types, weights=[4, 8, 2, 3])[0]
@@ -27,6 +30,7 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
             {
                 "nights": nights,
                 "adults": rng.randint(1, 4),
+                "account": rng.choice(accounts),
                 "room_type": room,
                 "country": rng.choice(countries),
                 "total_price": price,
@@ -34,7 +38,10 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
                 "breakfast_included": rng.choice(["yes", "no"]),
             }
         )
-    return pd.DataFrame(records)
+    df = pd.DataFrame(records)
+    for i, name in enumerate(one_offs):
+        df.loc[i * 7 % rows, "account"] = name
+    return df
 
 
 if __name__ == "__main__":
