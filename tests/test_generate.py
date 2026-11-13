@@ -1,5 +1,7 @@
 import pandas as pd
 
+from csv_synth.synth import Synthesis
+
 
 def test_generate_writes_synthetic_csv_next_to_input(invoke, source_csv):
     result = invoke("generate", source_csv)
@@ -107,7 +109,7 @@ def test_personal_value_overlap_writes_no_file_and_exits_with_error(
     pd.DataFrame(
         {"email": [f"user{i}@example.org" for i in range(20)], "n": range(20)}
     ).to_csv(src, index=False)
-    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: real.copy())
+    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: Synthesis(real.copy(), real, None))
 
     result = invoke("generate", src)
 

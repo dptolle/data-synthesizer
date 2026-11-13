@@ -50,7 +50,7 @@ This writes two files next to the input, inside `examples/`:
 - `hotel_sample_settings.csv`: the Settings file (written by `inspect`, read by `generate`).
 - `hotel_sample_synthetic.csv`: the Synthetic CSV.
 
-`generate` prints a short summary. It lists the faked, disguised and dropped columns by name. It shows the result of the privacy check. It never prints data values. It also prints the seed it used. Pass `--seed` with that number to repeat the run.
+`generate` prints a short summary. It lists the faked, disguised and dropped columns by name. It shows the result of the privacy check and SDV's quality score (one number, 0 to 100%, for how close the copy is to your data). It never prints data values. It also prints the seed it used. Pass `--seed` with that number to repeat the run.
 
 You can skip `inspect`. Then `generate` guesses the settings and writes them out for next time.
 
@@ -135,23 +135,24 @@ Run `csv-synth inspect --help` or `csv-synth generate --help` for the same list 
 
 **What the privacy check does**
 
-- It compares the output with your data before saving.
+- It compares the output with your data before saving (after rare labels are merged and labels are disguised, so it checks what the output is built from).
+- If a fake value in a personal or free-text column matches a real value by chance, the tool draws a new fake value for that cell, up to a few times. The same `--seed` still gives the same output ([test](tests/test_redraw.py)).
 - If any personal or free-text value appears in the output, the tool saves no file. It names the columns and suggests a change to the Settings file. It still writes the Settings file (unless it read one), so you can apply the fix.
 - If a whole real row appears in the output, the tool saves the file and prints a warning with the count only. In small tables this can happen by chance.
 
 **Other protections**
 
-- Category labels seen in fewer than 5 rows are merged into "Other". Change this with `--rare-threshold` ([test](tests/test_rare_cli.py)).
+- Category labels seen in fewer than 5 rows are merged into "Other", also for number-coded and true/false categories. Change this with `--rare-threshold` ([test](tests/test_rare_cli.py), [number codes](tests/test_rare_codes.py)).
 - Real minimum and maximum values of numbers and dates are not reproduced ([number test](tests/test_rare_cli.py), [date test](tests/test_dates.py)).
 - Secret labels can be replaced by stand-ins. The mapping is kept in memory only and is written to no file ([test](tests/test_disguise.py)).
-- The trained model is never saved.
+- The trained model is never saved. The test runs `generate` with separate input, output, Settings and current folders. It checks that only the Synthetic CSV and the Settings file are written, and that no model, pickle or `sdv_logs.csv` file appears ([test](tests/test_nothing_saved.py)).
 - Summaries and messages contain column names and counts, never data values ([test](tests/test_privacy.py)).
 
 **What is not promised**
 
 - Column names stay visible. Common category labels stay visible, unless you disguise them. Overall patterns stay visible. Check the output before you share it.
 - **This tool is not a legal guarantee of anonymisation**, for example under the GDPR. Follow your own organisation's rules.
-- The tool writes only the Synthetic CSV and the Settings file next to your data. But the SDV library it uses copies a small settings file for its own logging into your user data folder (for example `%LOCALAPPDATA%\sdv-dev\sdv` on Windows). It holds no data from your file. The linked test only checks that a run adds no other files to the data folder ([test](tests/test_generate.py)). It does not check your user data folder.
+- The tool writes only the Synthetic CSV and the Settings file next to your data. But the SDV library it uses copies a small settings file for its own logging into your user data folder (for example `%LOCALAPPDATA%\sdv-dev\sdv` on Windows). It holds no data from your file. The linked tests check that a run adds no other files, and never an `sdv_logs.csv`, to the input, output, Settings and current folders ([test](tests/test_nothing_saved.py), [test](tests/test_generate.py)). They do not check your user data folder.
 - If your output encoding cannot hold a character, the tool replaces it with `?` and warns you with the count (the warning does not name the character).
 - If a date column uses slashes and is ambiguous (in every date both numbers are 12 or less, such as `03/04/2024`), the tool assumes month first. It warns you and names the column. `inspect` and a `generate` that has no Settings file yet give this warning. Set the right format in the Settings file.
 

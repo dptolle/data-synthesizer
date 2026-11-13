@@ -12,6 +12,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from csv_synth.settings import FAKED_TYPES
+
 
 # --- Rare-category merge ----------------------------------------------------
 
@@ -42,6 +44,8 @@ def merge_rare(series: pd.Series, threshold: int = 5, other: str = "Other") -> p
     out = series.copy()
     if isinstance(out.dtype, pd.CategoricalDtype):
         out = out.cat.add_categories([name])
+    elif not pd.api.types.is_object_dtype(out.dtype) and not pd.api.types.is_string_dtype(out.dtype):
+        out = out.astype(object)  # number-coded or true/false labels: "Other" is text
     mask = out.isin(rare)
     out[mask] = name
     if isinstance(out.dtype, pd.CategoricalDtype):
@@ -68,14 +72,6 @@ def disguise(series: pd.Series, column: str, rng) -> pd.Series:
 
 # --- Overlap check ----------------------------------------------------------
 
-from dataclasses import dataclass
-
-
-# Column types whose values must never appear in the same column of the output.
-PERSONAL_TYPES = frozenset({"email", "name", "address", "phone", "card", "id", "text"})
-
-_TABLE = "table"
-
 
 @dataclass(frozen=True)
 class Finding:
@@ -97,23 +93,23 @@ def check_overlap(
     `column_types` maps column name to type; columns missing from it are treated
     as non-personal (only the whole-row check covers them).
     """
-    from sdv.evaluation.utils import get_combination_overlap, get_pii_overlap
+    from csv_synth import synth  # the only module that imports SDV
+
 
     findings: list[Finding] = []
     for col in real.columns:
-        if column_types.get(col) not in PERSONAL_TYPES or col not in synthetic.columns:
+        if column_types.get(col) not in FAKED_TYPES or col not in synthetic.columns:
             continue
-        tables = _tables(real[[col]].dropna(), synthetic[[col]].dropna())
-        count = get_pii_overlap(*tables, _TABLE, col, verbose=False)
+        real_col, synth_col = real[[col]].dropna(), synthetic[[col]].dropna()
+        count = synth.pii_overlap(real_col, synth_col, col)
         # Our own direct check, in case SDV's does not see the column (e.g. `text`).
-        direct = len(set(tables[0][_TABLE][col]) & set(tables[1][_TABLE][col]))
+        direct = len(set(real_col[col]) & set(synth_col[col]))
         if max(count, direct):
             findings.append(Finding("value", col, max(count, direct)))
 
     shared = [c for c in real.columns if c in synthetic.columns]
     if shared and len(synthetic):
-        tables = _tables(real[shared], synthetic[shared])
-        rows = get_combination_overlap(*tables, _TABLE, shared, verbose=False)
+        rows = synth.combination_overlap(real[shared], synthetic[shared], shared)
         if rows:
             findings.append(Finding("row", None, rows))
     return findings
@@ -137,7 +133,3 @@ def describe(findings: list[Finding]) -> list[str]:
                 "in the Settings file."
             )
     return lines
-
-
-def _tables(real: pd.DataFrame, synthetic: pd.DataFrame):
-    return {_TABLE: real}, {_TABLE: synthetic}

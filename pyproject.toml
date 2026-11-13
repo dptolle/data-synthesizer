@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "sdv==2.2.0",
+    "faker>=25",
     "typer>=0.12",
 ]
 
@@ -13,7 +14,7 @@ dependencies = [
 csv-synth = "csv_synth.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8", "faker>=25", "pytest-socket>=0.7"]
+dev = ["pytest>=8", "pytest-socket>=0.7"]
 
 [build-system]
 requires = ["hatchling"]

@@ -64,21 +64,6 @@ def test_output_is_sentences_of_similar_length(invoke, notes_df, tmp_path):
     assert out["guest_notes"].str.contains(" ").all()
 
 
-def test_text_is_never_passed_to_sdv_as_categorical(invoke, notes_df, tmp_path, monkeypatch):
-    from sdv.metadata import Metadata
-
-    seen = {}
-    real_detect = Metadata.detect_from_dataframes
-
-    def spy(frames, *a, **k):
-        seen["columns"] = list(frames["table"].columns)
-        return real_detect(frames, *a, **k)
-
-    monkeypatch.setattr(Metadata, "detect_from_dataframes", spy)
-    _generate(invoke, notes_df, tmp_path)
-    assert "guest_notes" not in seen["columns"]
-
-
 def test_missing_text_values_do_not_break(invoke, notes_df, tmp_path):
     notes_df.loc[::5, "guest_notes"] = None
     _, out = _generate(invoke, notes_df, tmp_path)

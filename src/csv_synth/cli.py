@@ -4,7 +4,7 @@ import codecs
 import random
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional
+from typing import NoReturn, Optional
 
 import typer
 
@@ -25,6 +25,12 @@ def main() -> None:
     """Make a synthetic copy of a CSV file, entirely on this computer."""
 
 
+def _fail(message: str) -> NoReturn:
+    """Print an error message and stop with exit code 1."""
+    typer.echo(message, err=True)
+    raise typer.Exit(1)
+
+
 def _default_settings(file: Path) -> Path:
     return file.with_name(f"{file.stem}_settings.csv")
 
@@ -32,27 +38,22 @@ def _default_settings(file: Path) -> Path:
 def _load(file: Path, delimiter: Optional[str], encoding: Optional[str], decimal: Optional[str]):
     """Detect (or apply) the format, print it, and read the Source CSV."""
     if delimiter is not None and len(delimiter) != 1:
-        typer.echo("Error: --delimiter must be a single character.", err=True)
-        raise typer.Exit(1)
+        _fail("Error: --delimiter must be a single character.")
     if decimal is not None and decimal not in (",", "."):
-        typer.echo("Error: --decimal must be , or .", err=True)
-        raise typer.Exit(1)
+        _fail("Error: --decimal must be , or .")
     if encoding is not None:
         try:
             codecs.lookup(encoding)
         except LookupError:
-            typer.echo(f"Error: unknown encoding `{encoding}` (--encoding).", err=True)
-            raise typer.Exit(1)
+            _fail(f"Error: unknown encoding `{encoding}` (--encoding).")
     try:
         fmt = csvio.detect_format(file, delimiter, encoding, decimal)
         if fmt.delimiter == fmt.decimal:
-            typer.echo("Error: the separator and the decimal mark must differ.", err=True)
-            raise typer.Exit(1)
+            _fail("Error: the separator and the decimal mark must differ.")
         typer.echo(f"Format: {fmt.describe()}.")
         return fmt, csvio.read_source(file, fmt)
     except csvio.FormatError as exc:
-        typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(1)
+        _fail(f"Error: {exc}")
 
 
 def _warn_dates(real, found, settings_path: Path, mixed: bool) -> None:
@@ -101,16 +102,13 @@ def inspect(
 ) -> None:
     """Guess how each column is handled and write it to a Settings file you can edit."""
     if not file.is_file():
-        typer.echo(f"Error: cannot find the file {file}.", err=True)
-        raise typer.Exit(1)
+        _fail(f"Error: cannot find the file {file}.")
     target = settings_file or _default_settings(file)
     if target.exists() and not force:
-        typer.echo(
+        _fail(
             f"Error: {target} already exists. Use --force to overwrite it, "
-            "or --settings to choose another name.",
-            err=True,
+            "or --settings to choose another name."
         )
-        raise typer.Exit(1)
     fmt, real = _load(file, delimiter, encoding, decimal)
     found = settings_mod.detect_settings(real)
     _warn_dates(real, found, target, mixed=True)
@@ -183,17 +181,14 @@ def generate(
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
-        typer.echo(f"Error: cannot find the file {file}.", err=True)
-        raise typer.Exit(1)
+        _fail(f"Error: cannot find the file {file}.")
 
     target = output or file.with_name(f"{file.stem}_synthetic.csv")
     if target.exists() and not force:
-        typer.echo(
+        _fail(
             f"Error: {target} already exists. Use --force to overwrite it, "
-            "or -o to choose another name.",
-            err=True,
+            "or -o to choose another name."
         )
-        raise typer.Exit(1)
 
     if seed is None:
         seed = random.SystemRandom().randrange(2**32)
@@ -219,15 +214,12 @@ def generate(
             settings_mod.write_settings(chosen, settings_path, fmt.delimiter)
         settings_mod.check_matches(chosen, real)
     except settings_mod.SettingsError as exc:
-        typer.echo(f"Error: {exc}", err=True)
-        if not settings_read:
-            typer.echo(f"The Settings file was saved to {settings_path}.", err=True)
-        raise typer.Exit(1)
+        saved = "" if settings_read else f"\nThe Settings file was saved to {settings_path}."
+        _fail(f"Error: {exc}{saved}")
     dropped = [s.column for s in chosen if s.action == "drop"]
     types = settings_mod.types_of_kept(chosen)
     if not types:
-        typer.echo("Error: every column is set to drop, so there is nothing to generate.", err=True)
-        raise typer.Exit(1)
+        _fail("Error: every column is set to drop, so there is nothing to generate.")
     real = real[list(types)]
     to_disguise = set(settings_mod.disguised(chosen))
     if disguise_all:
@@ -240,25 +232,24 @@ def generate(
             f"Note: the file is large, so the tool learns from a random sample "
             f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
         )
-    synthetic = synthesize(
+    result = synthesize(
         real, out_rows, seed, rare_threshold, types, fit_rows, to_disguise,
         settings_mod.date_formats(chosen),
     )
-    # The Settings file's types drive the overlap check.
-    findings = privacy.check_overlap(real, synthetic, types)
+    synthetic = result.synthetic
+    # The Settings file's types drive the overlap check, which compares with the
+    # prepared real data (after rare merge and disguise).
+    findings = privacy.check_overlap(result.prepared, synthetic, types)
     blocking = [f for f in findings if f.blocks]
     warnings = [f for f in findings if not f.blocks]
     if blocking:
-        typer.echo(
+        lines = [
             "Error: the privacy check failed, so no Synthetic CSV was written. "
-            "Nothing was changed automatically.",
-            err=True,
-        )
+            "Nothing was changed automatically."
+        ]
         if not settings_read:
-            typer.echo(f"The Settings file was saved to {settings_path}.", err=True)
-        for line in privacy.describe(blocking):
-            typer.echo(line, err=True)
-        raise typer.Exit(1)
+            lines.append(f"The Settings file was saved to {settings_path}.")
+        _fail("\n".join(lines + privacy.describe(blocking)))
 
     replaced = csvio.write_synthetic(synthetic, target, fmt)
     if replaced:
@@ -282,6 +273,8 @@ def generate(
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
+    if result.quality is not None:
+        typer.echo(f"Quality score: {result.quality * 100:.1f}% (SDV's score, 0 to 100%).")
     if warnings:
         typer.echo("Warning: the file was saved, but note:", err=True)
         for line in privacy.describe(warnings):
