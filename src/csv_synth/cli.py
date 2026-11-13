@@ -181,15 +181,19 @@ def generate(
     fmt, real = _load(file, delimiter, encoding, decimal)
     settings_path = settings_file or _default_settings(file)
     settings_read = settings_path.exists()
-    if settings_read:
-        try:
+    try:
+        if settings_read:
             chosen = settings_mod.read_settings(settings_path, fmt.delimiter)
-            settings_mod.check_matches(chosen, real)
-        except settings_mod.SettingsError as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(1)
-    else:
-        chosen = settings_mod.detect_settings(real)
+        else:
+            chosen = settings_mod.detect_settings(real)
+            # Saved before the checks, so a date format can be fixed there if they fail.
+            settings_mod.write_settings(chosen, settings_path, fmt.delimiter)
+        settings_mod.check_matches(chosen, real)
+    except settings_mod.SettingsError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        if not settings_read:
+            typer.echo(f"The Settings file was saved to {settings_path}.", err=True)
+        raise typer.Exit(1)
     dropped = [s.column for s in chosen if s.action == "drop"]
     types = settings_mod.types_of_kept(chosen)
     if not types:
@@ -207,14 +211,14 @@ def generate(
             f"Note: the file is large, so the tool learns from a random sample "
             f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
         )
-    synthetic = synthesize(real, out_rows, seed, rare_threshold, types, fit_rows, to_disguise)
+    synthetic = synthesize(
+        real, out_rows, seed, rare_threshold, types, fit_rows, to_disguise,
+        settings_mod.date_formats(chosen),
+    )
     # The Settings file's types drive the overlap check.
     findings = privacy.check_overlap(real, synthetic, types)
     blocking = [f for f in findings if f.blocks]
     warnings = [f for f in findings if not f.blocks]
-    # Written even when the check fails, so the user can apply the suggested fix.
-    if not settings_read:
-        settings_mod.write_settings(chosen, settings_path, fmt.delimiter)
     if blocking:
         typer.echo(
             "Error: the privacy check failed, so no Synthetic CSV was written. "
