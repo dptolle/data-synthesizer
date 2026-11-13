@@ -2,6 +2,7 @@
 
 import random
 import re
+import warnings
 from collections import Counter
 from dataclasses import dataclass
 
@@ -236,8 +237,12 @@ def synthesize(
     for col, fmt in (date_formats or {}).items():
         if col in data.columns:
             metadata.update_column(col, "table", sdtype="datetime", datetime_format=fmt)
-    synthesizer = GaussianCopulaSynthesizer(metadata, enforce_min_max_values=False)
-    synthesizer.fit({"table": data})
+    with warnings.catch_warnings():
+        # SDV advises saving the Metadata as JSON. We never write it to disk
+        # on purpose, so hide that one piece of advice.
+        warnings.filterwarnings("ignore", message=".*save_to_json.*")
+        synthesizer = GaussianCopulaSynthesizer(metadata, enforce_min_max_values=False)
+        synthesizer.fit({"table": data})
     out = synthesizer.sample(num_rows=rows)["table"]
 
     fake = Faker()
