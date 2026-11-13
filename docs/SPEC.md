@@ -264,3 +264,4 @@ No other seams. SDV is never mocked. Tests use the real sdv 2.2.0.
 - When `generate` writes a Settings file during a `--disguise-all` run, it records `disguise` for every `category` column.
 - Characters that the output encoding can't hold are replaced with `?`, and the tool prints a warning with the count.
 - Ambiguous slash dates (every day 12 or less) are assumed month first (`%m/%d/%Y`), with a warning naming the column and pointing to the Settings file. `inspect` also warns about columns with mixed date styles.
+- When a Faker-generated value (in an `email`, `name`, `address`, `phone`, `card`, `id` or `text` column) matches a real value by chance, the tool draws a new fake value for that cell, retrying a few times. It blocks saving only if a match remains after that. The overlap check stays as the final safety net.
