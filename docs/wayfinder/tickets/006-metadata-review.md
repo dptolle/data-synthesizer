@@ -23,3 +23,5 @@ Decided with the owner on 2026-11-13.
    - `number`, `date`: newly generated values
    - `text`: free text
 5. **Free-text columns are replaced with fake sentences of similar length.** No real text survives.
+
+_Amended by "How does the tool handle messy CSV files?": the Settings file has a 4th column, `format`, for date formats._

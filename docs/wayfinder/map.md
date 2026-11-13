@@ -32,6 +32,10 @@ A build-ready spec for a command-line tool (run from Git Bash or PowerShell, and
 - [Can SDV disguise category labels consistently?](tickets/008-label-disguise.md): yes, but with plain pandas before fitting, not RDT; rare-category merging is plain pandas too. A fitted synthesizer can contain real values, so it must never be saved.
 - [How does the user review and correct detected Metadata?](tickets/006-metadata-review.md): automatic, plus our own value-based personal-data checks; corrections go in a simple CSV Settings file (`column, type, action`) using our own short type list; free text becomes fake sentences.
 - [CLI commands and flags](tickets/007-cli-commands-and-flags.md): `inspect` and `generate` commands; `-o`, `--settings`, `--force`, `--rows`, `--seed`, `--rare-threshold`, `--disguise-all`; GaussianCopula only; the tool stops on settings mismatch or a failed privacy check; prints a summary with no data values.
+- [How does the tool handle messy CSV files?](tickets/009-messy-csv.md): the output keeps the input's format; separator, encoding and decimal comma are auto-detected with override options; date formats go in a new `format` column of the Settings file; files over 100,000 rows are learned from a sample.
+- [How is the code set up and tested?](tickets/011-code-setup-and-tests.md): Typer; `src/csv_synth/` with SDV isolated in one module; `sdv==2.2.0` pinned exactly; pytest privacy, offline and format tests; Faker-made sample CSV; CI on 3 systems × Python 3.10/3.14; privacy rules built test-first.
+- [What goes in the README?](tickets/010-readme.md): 10 sections, from purpose to license; three promises each backed by a test; clearly not a legal anonymisation guarantee; limits stated upfront; English only.
+- [Write the build-ready spec](tickets/012-write-spec.md): done. The destination is reached: [`docs/SPEC.md`](../SPEC.md), labelled `ready-for-agent`.
 
 ## Not yet specified
 
