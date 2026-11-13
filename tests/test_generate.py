@@ -95,3 +95,27 @@ def test_help_explains_every_option(invoke):
     assert gen.exit_code == 0
     for opt in ["--output", "--force", "--rows", "--seed"]:
         assert opt in gen.output
+
+
+def test_failed_privacy_check_writes_no_file_and_exits_with_error(
+    invoke, source_csv, monkeypatch
+):
+    # Force a leak: a "synthesizer" that hands back real rows.
+    import csv_synth.synth
+
+    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed: real.copy())
+
+    result = invoke("generate", source_csv)
+
+    assert result.exit_code != 0
+    assert not (source_csv.parent / "hotel_synthetic.csv").exists()
+    assert "exact copies of real rows" in result.output
+    assert "Settings file" in result.output
+    assert "single" not in result.output and "suite" not in result.output
+
+
+def test_summary_reports_privacy_check_on_success(invoke, source_csv):
+    result = invoke("generate", source_csv)
+
+    assert result.exit_code == 0, result.output
+    assert "Privacy check passed" in result.output
