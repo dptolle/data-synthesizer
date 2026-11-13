@@ -4,10 +4,10 @@
 
 **Blocked by:** 03 (Personal columns are always faked), 04 (Privacy check blocks saving)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A text column where almost every value is different is detected as `text`. The exact threshold is chosen while building and noted in the code.
-- [ ] `text` columns are never passed to SDV as categorical. The output holds Faker sentences of about the same length as the real values.
-- [ ] The privacy test checks that no real text value appears in the output.
-- [ ] The overlap check from ticket 04 covers `text` columns, and a test proves it.
-- [ ] The Sample CSV script adds a free-text column (e.g. guest notes).
+- [x] A text column where almost every value is different is detected as `text`. The exact threshold is chosen while building and noted in the code.
+- [x] `text` columns are never passed to SDV as categorical. The output holds Faker sentences of about the same length as the real values.
+- [x] The privacy test checks that no real text value appears in the output.
+- [x] The overlap check from ticket 04 covers `text` columns, and a test proves it.
+- [x] The Sample CSV script adds a free-text column (e.g. guest notes).
