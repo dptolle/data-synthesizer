@@ -4,11 +4,11 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The check uses SDV's `get_pii_overlap` and `get_combination_overlap`.
-- [ ] Our own direct check: no value from any `email`, `name`, `address`, `phone`, `card`, `id` or `text` column appears in that column of the output.
-- [ ] Seam tests: given a "real" table and a "synthetic" table that share values, the check reports exactly the right columns. Given tables with no overlap, it reports nothing.
-- [ ] CLI test: when the check fails, no output file exists afterwards, the message names the columns and suggests a fix, and the exit code is non-zero.
-- [ ] Messages and the summary never contain data values, only column names and counts.
-- [ ] The summary reports the check result on success.
+- [x] The check uses SDV's `get_pii_overlap` and `get_combination_overlap`.
+- [x] Our own direct check: no value from any `email`, `name`, `address`, `phone`, `card`, `id` or `text` column appears in that column of the output.
+- [x] Seam tests: given a "real" table and a "synthetic" table that share values, the check reports exactly the right columns. Given tables with no overlap, it reports nothing.
+- [x] CLI test: when the check fails, no output file exists afterwards, the message names the columns and suggests a fix, and the exit code is non-zero.
+- [x] Messages and the summary never contain data values, only column names and counts.
+- [x] The summary reports the check result on success.
