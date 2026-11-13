@@ -1,5 +1,6 @@
 """The csv-synth command line."""
 
+import codecs
 import random
 from pathlib import Path
 from typing import Optional
@@ -27,6 +28,32 @@ def _default_settings(file: Path) -> Path:
     return file.with_name(f"{file.stem}_settings.csv")
 
 
+def _load(file: Path, delimiter: Optional[str], encoding: Optional[str], decimal: Optional[str]):
+    """Detect (or apply) the format, print it, and read the Source CSV."""
+    if delimiter is not None and len(delimiter) != 1:
+        typer.echo("Error: --delimiter must be a single character.", err=True)
+        raise typer.Exit(1)
+    if decimal is not None and decimal not in (",", "."):
+        typer.echo("Error: --decimal must be , or .", err=True)
+        raise typer.Exit(1)
+    if encoding is not None:
+        try:
+            codecs.lookup(encoding)
+        except LookupError:
+            typer.echo(f"Error: unknown encoding `{encoding}` (--encoding).", err=True)
+            raise typer.Exit(1)
+    try:
+        fmt = csvio.detect_format(file, delimiter, encoding, decimal)
+        if fmt.delimiter == fmt.decimal:
+            typer.echo("Error: the separator and the decimal mark must differ.", err=True)
+            raise typer.Exit(1)
+        typer.echo(f"Format: {fmt.describe()}.")
+        return fmt, csvio.read_source(file, fmt)
+    except csvio.FormatError as exc:
+        typer.echo(f"Error: {exc}", err=True)
+        raise typer.Exit(1)
+
+
 @app.command()
 def inspect(
     file: Path = typer.Argument(..., help="The Source CSV to look at."),
@@ -37,6 +64,17 @@ def inspect(
     ),
     force: bool = typer.Option(
         False, "--force", help="Overwrite the Settings file if it already exists."
+    ),
+    delimiter: Optional[str] = typer.Option(
+        None, "--delimiter", help="Separator of the Source CSV. Default: detected."
+    ),
+    encoding: Optional[str] = typer.Option(
+        None,
+        "--encoding",
+        help="Encoding of the Source CSV, for example cp1252. Default: detected (UTF-8, then cp1252).",
+    ),
+    decimal: Optional[str] = typer.Option(
+        None, "--decimal", help="Decimal mark of the Source CSV (, or .). Default: detected."
     ),
 ) -> None:
     """Guess how each column is handled and write it to a Settings file you can edit."""
@@ -51,8 +89,9 @@ def inspect(
             err=True,
         )
         raise typer.Exit(1)
-    found = settings_mod.detect_settings(csvio.read_source(file))
-    settings_mod.write_settings(found, target)
+    fmt, real = _load(file, delimiter, encoding, decimal)
+    found = settings_mod.detect_settings(real)
+    settings_mod.write_settings(found, target, fmt.delimiter)
     typer.echo(f"Wrote settings for {len(found)} columns to {target}.")
     typer.echo("Check the types in the file, then run: csv-synth generate " + str(file))
 
@@ -60,7 +99,7 @@ def inspect(
 @app.command()
 def generate(
     file: Path = typer.Argument(
-        ..., help="The Source CSV to learn from (comma-separated, UTF-8)."
+        ..., help="The Source CSV to learn from (separator, encoding and decimal mark are detected)."
     ),
     output: Optional[Path] = typer.Option(
         None,
@@ -102,6 +141,17 @@ def generate(
         min=1,
         help="Category labels seen in fewer rows than this become \"Other\".",
     ),
+    delimiter: Optional[str] = typer.Option(
+        None, "--delimiter", help="Separator of the Source CSV. Default: detected."
+    ),
+    encoding: Optional[str] = typer.Option(
+        None,
+        "--encoding",
+        help="Encoding of the Source CSV, for example cp1252. Default: detected (UTF-8, then cp1252).",
+    ),
+    decimal: Optional[str] = typer.Option(
+        None, "--decimal", help="Decimal mark of the Source CSV (, or .). Default: detected."
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -123,12 +173,12 @@ def generate(
 
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
-    real = csvio.read_source(file)
+    fmt, real = _load(file, delimiter, encoding, decimal)
     settings_path = settings_file or _default_settings(file)
     settings_read = settings_path.exists()
     if settings_read:
         try:
-            chosen = settings_mod.read_settings(settings_path)
+            chosen = settings_mod.read_settings(settings_path, fmt.delimiter)
             settings_mod.check_matches(chosen, real)
         except settings_mod.SettingsError as exc:
             typer.echo(f"Error: {exc}", err=True)
@@ -154,19 +204,22 @@ def generate(
     findings = privacy.check_overlap(real, synthetic, types)
     blocking = [f for f in findings if f.blocks]
     warnings = [f for f in findings if not f.blocks]
+    # Written even when the check fails, so the user can apply the suggested fix.
+    if not settings_read:
+        settings_mod.write_settings(chosen, settings_path, fmt.delimiter)
     if blocking:
         typer.echo(
-            "Error: the privacy check failed, so no file was written. "
+            "Error: the privacy check failed, so no Synthetic CSV was written. "
             "Nothing was changed automatically.",
             err=True,
         )
+        if not settings_read:
+            typer.echo(f"The Settings file was saved to {settings_path}.", err=True)
         for line in privacy.describe(blocking):
             typer.echo(line, err=True)
         raise typer.Exit(1)
 
-    csvio.write_synthetic(synthetic, target)
-    if not settings_read:
-        settings_mod.write_settings(chosen, settings_path)
+    csvio.write_synthetic(synthetic, target, fmt)
 
     typer.echo(
         "Faked (personal data): "
