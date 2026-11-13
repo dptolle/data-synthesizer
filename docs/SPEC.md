@@ -253,3 +253,14 @@ No other seams. SDV is never mocked. Tests use the real sdv 2.2.0.
 - **Never**: upload, send or print real data; add any network call; save the fitted model; copy SDV code into the repo; set `pii: False` on a personal type; weaken or skip the overlap check; push to GitHub (the owner pushes).
 
 **Decision record:** every decision here comes from a closed ticket in `docs/wayfinder/tickets/`. Research findings are on the local branches `research/sdv-license`, `research/sdv-network-and-leakage`, `research/sdv-install-footprint` and `research/label-disguise`. The builder should merge or copy the `docs/research/` files to `main` before building, so they are available.
+
+**Decisions made with the owner during building (2026-11-13)**
+- Whole real rows found by the overlap check only produce a warning with a count. Personal and `text` value overlap still blocks saving.
+- `--fit-rows` default: 100,000 (after measurement).
+- Personal-data detection is a third test seam.
+- SDV 2.2.0 never writes `sdv_logs.csv`. The README documents the small SDV settings file in the user's data folder.
+- When the privacy check fails, the Settings file is still written (unless one was read).
+- In a disguised column, the merged "Other" label is disguised too.
+- When `generate` writes a Settings file during a `--disguise-all` run, it records `disguise` for every `category` column.
+- Characters that the output encoding can't hold are replaced with `?`, and the tool prints a warning with the count.
+- Ambiguous slash dates (every day 12 or less) are assumed month first (`%m/%d/%Y`), with a warning naming the column and pointing to the Settings file. `inspect` also warns about columns with mixed date styles.
