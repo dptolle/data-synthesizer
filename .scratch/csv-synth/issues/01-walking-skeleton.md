@@ -4,18 +4,18 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The project uses uv's standard src layout. `uv tool install git+<repo>` installs a `csv-synth` command. Python 3.10–3.14.
-- [ ] `sdv==2.2.0` is pinned exactly in the project dependencies. Typer is the CLI library.
-- [ ] Only the `synth` module imports SDV. The module split follows the spec (`cli`, `csvio`, `settings`, `detect`, `privacy`, `synth`). Create a module only when it is first needed.
-- [ ] `csv-synth generate <file>` writes `<input>_synthetic.csv` next to the input by default. `-o` sets another name.
-- [ ] If the output exists, the tool stops with a clear message. `--force` allows overwriting.
-- [ ] `--rows <n>` sets the row count. The default is the Source CSV's row count.
-- [ ] `--seed <n>` gives identical output for identical input. Without it, a random seed is used and printed. Verify that SDV 2.2.0 really makes this repeatable. If it doesn't, report this to the owner before working around it.
-- [ ] Empty columns stay empty. Missing values appear about as often as in the input.
-- [ ] The fitted model is never written to disk. A test checks that no new files appear apart from the expected outputs (SDV's `sdv_logs.csv` is handled in ticket 02).
-- [ ] At the end, a summary prints rows and columns written, with no data values.
-- [ ] `csv-synth --help` and `csv-synth generate --help` explain every option in plain words.
-- [ ] A script in the repo uses Faker to generate a fake hotel Sample CSV (about 500 rows; first version: numbers, categories, some missing values). Later tickets extend it.
-- [ ] pytest tests drive the CLI in-process (Typer's test runner) on small temporary CSVs and check only files, messages and exit codes. SDV is never mocked.
+- [ ] The project uses uv's standard src layout. `uv tool install git+<repo>` installs a `csv-synth` command. Python 3.10–3.14. (install path not yet exercised; covered by CI in ticket 02)
+- [x] `sdv==2.2.0` is pinned exactly in the project dependencies. Typer is the CLI library.
+- [x] Only the `synth` module imports SDV. The module split follows the spec (`cli`, `csvio`, `settings`, `detect`, `privacy`, `synth`). Create a module only when it is first needed.
+- [x] `csv-synth generate <file>` writes `<input>_synthetic.csv` next to the input by default. `-o` sets another name.
+- [x] If the output exists, the tool stops with a clear message. `--force` allows overwriting.
+- [x] `--rows <n>` sets the row count. The default is the Source CSV's row count.
+- [x] `--seed <n>` gives identical output for identical input. Without it, a random seed is used and printed. Verify that SDV 2.2.0 really makes this repeatable. If it doesn't, report this to the owner before working around it.
+- [x] Empty columns stay empty. Missing values appear about as often as in the input.
+- [x] The fitted model is never written to disk. A test checks that no new files appear apart from the expected outputs (SDV's `sdv_logs.csv` is handled in ticket 02).
+- [x] At the end, a summary prints rows and columns written, with no data values.
+- [x] `csv-synth --help` and `csv-synth generate --help` explain every option in plain words.
+- [x] A script in the repo uses Faker to generate a fake hotel Sample CSV (about 500 rows; first version: numbers, categories, some missing values). Later tickets extend it.
+- [x] pytest tests drive the CLI in-process (Typer's test runner) on small temporary CSVs and check only files, messages and exit codes. SDV is never mocked.
