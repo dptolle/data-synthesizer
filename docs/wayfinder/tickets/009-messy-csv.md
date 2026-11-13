@@ -30,3 +30,5 @@ Decided with the owner on 2026-11-13.
 7. **Large files**: above 100,000 rows, the tool learns from a random sample of 100,000 rows and prints a note. `--fit-rows <n>` changes the limit. The output row count is unchanged (input rows, or `--rows`). The 100,000 figure must be tested on a normal laptop during building.
 
 New options for `generate` and `inspect`: `--delimiter`, `--encoding`, `--decimal`, `--fit-rows`.
+
+_Amended by the owner on 2026-11-13: the `--fit-rows` default is 500, not 100,000._

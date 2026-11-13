@@ -91,7 +91,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 45. As a user, if one column mixes date styles, I want the tool to stop and ask me to set the format, so that dates aren't silently broken.
 46. As a user, I want empty columns to stay empty and one-value columns to keep their value, so that the structure matches.
 47. As a user, I want missing values to appear about as often as in my data, so that my code handles them.
-48. As a user with a very large file, I want the tool to learn from a random sample of 100,000 rows by default, with `--fit-rows` to change this, so that it finishes on a normal laptop.
+48. As a user with a very large file, I want the tool to learn from a random sample of 500 rows by default, with `--fit-rows` to change this, so that it finishes on a normal laptop.
 
 **Maintainer**
 
@@ -126,7 +126,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 3. Drop the columns marked `drop`.
 4. Merge Rare categories into "Other" in `category` columns (threshold `--rare-threshold`, default 5).
 5. Disguise labels in columns marked `disguise` (or in all `category` columns with `--disguise-all`).
-6. If there are more than `--fit-rows` rows (default 100,000), take a random sample to learn from.
+6. If there are more than `--fit-rows` rows (default 500), take a random sample to learn from.
 7. Fit GaussianCopula and sample `--rows` rows (default: the Source CSV's row count), using `--seed`.
 8. Run the overlap check against the prepared real data. On failure, write nothing and exit non-zero.
 9. Write the Synthetic CSV in the Source CSV's format, then the Settings file (unless one was read), then print the summary.
@@ -169,7 +169,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 | `--delimiter <c>` | both | detected | Override the separator |
 | `--encoding <name>` | both | detected (UTF-8, then cp1252) | Override the encoding |
 | `--decimal <c>` | both | detected | Override the decimal mark |
-| `--fit-rows <n>` | generate | 100,000 | Learn from a random sample above this size |
+| `--fit-rows <n>` | generate | 500 | Learn from a random sample above this size |
 
 - The method is always GaussianCopula. There is no option to choose another.
 - Per-column choices live only in the Settings file. Options are for whole-run choices only.
@@ -242,7 +242,7 @@ No other seams. SDV is never mocked. Tests use the real sdv 2.2.0.
 
 **Verify during building** (open facts, not open decisions)
 - `--seed` gives fully repeatable output with SDV 2.2.0.
-- The 100,000-row `--fit-rows` default finishes in reasonable time and memory on a normal laptop. Adjust it if not.
+- How long a fit takes at the 500-row `--fit-rows` default and at larger values, so users know the trade-off (owner chose 500 on 2026-11-13).
 - The exact command for CPU-only torch on Linux, with `uv tool install`.
 - What to do with SDV's `sdv_logs.csv` (redirect, disable, or document).
 - The offline claim with a real socket-blocked run. The research read the source code but did not run it offline.

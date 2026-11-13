@@ -6,7 +6,7 @@ from typing import Optional
 
 import typer
 
-from csv_synth import csvio
+from csv_synth import csvio, privacy
 
 app = typer.Typer(
     help=(
@@ -50,6 +50,12 @@ def generate(
         help="Number that makes the output repeatable: same file and same seed give the same result. "
         "Default: a random seed, which is printed.",
     ),
+    rare_threshold: int = typer.Option(
+        5,
+        "--rare-threshold",
+        min=1,
+        help="Category labels seen in fewer rows than this become \"Other\".",
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -72,9 +78,23 @@ def generate(
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    synthetic = synthesize(real, rows if rows is not None else len(real), seed)
+    synthetic = synthesize(real, rows if rows is not None else len(real), seed, rare_threshold)
+    # Column types: none yet (ticket 03 supplies them); the whole-row check still runs.
+    column_types: dict[str, str] = {}
+    findings = privacy.check_overlap(real, synthetic, column_types)
+    if findings:
+        typer.echo(
+            "Error: the privacy check failed, so no file was written. "
+            "Nothing was changed automatically.",
+            err=True,
+        )
+        for line in privacy.describe(findings):
+            typer.echo(line, err=True)
+        raise typer.Exit(1)
+
     csvio.write_synthetic(synthetic, target)
 
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
+    typer.echo("Privacy check passed: no personal values and no real rows in the output.")
