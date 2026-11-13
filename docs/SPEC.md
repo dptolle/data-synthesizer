@@ -91,7 +91,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 45. As a user, if one column mixes date styles, I want the tool to stop and ask me to set the format, so that dates aren't silently broken.
 46. As a user, I want empty columns to stay empty and one-value columns to keep their value, so that the structure matches.
 47. As a user, I want missing values to appear about as often as in my data, so that my code handles them.
-48. As a user with a very large file, I want the tool to learn from a random sample of 500 rows by default, with `--fit-rows` to change this, so that it finishes on a normal laptop.
+48. As a user with a very large file, I want the tool to learn from a random sample of 100,000 rows by default, with `--fit-rows` to change this, so that it finishes on a normal laptop.
 
 **Maintainer**
 
@@ -126,7 +126,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 3. Drop the columns marked `drop`.
 4. Merge Rare categories into "Other" in `category` columns (threshold `--rare-threshold`, default 5).
 5. Disguise labels in columns marked `disguise` (or in all `category` columns with `--disguise-all`).
-6. If there are more than `--fit-rows` rows (default 500), take a random sample to learn from.
+6. If there are more than `--fit-rows` rows (default 100,000), take a random sample to learn from.
 7. Fit GaussianCopula and sample `--rows` rows (default: the Source CSV's row count), using `--seed`.
 8. Run the overlap check against the prepared real data. On failure, write nothing and exit non-zero.
 9. Write the Synthetic CSV in the Source CSV's format, then the Settings file (unless one was read), then print the summary.
@@ -150,10 +150,10 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 - No Identifying values in the Synthetic CSV. Shared labels may appear.
 - Rare categories (fewer than `--rare-threshold` rows, default 5) are merged into "Other" before fitting. Empty values are not counted or merged. If "Other" already exists as a real label, use an unused name. pandas `category` dtypes need the new label added first. A column where every label is rare becomes a single label.
 - Label disguise is done with plain pandas before fitting: shuffle the distinct labels, number them `<column>_1`, `<column>_2`, … and keep the mapping in memory only. Do NOT use RDT's `PseudoAnonymizedFaker`: it is rejected on categorical columns, keeps frequencies poorly, and stores real labels inside the fitted synthesizer.
-- The overlap check runs on every `generate`, using SDV's `get_pii_overlap` and `get_combination_overlap`, plus our own direct check that no value from any `email`, `name`, `address`, `phone`, `card`, `id` or `text` column appears in that column of the output (SDV's checks don't know our `text` type). If anything overlaps, write no file, name the columns, suggest a Settings file change, and exit non-zero. Never fix anything automatically.
+- The overlap check runs on every `generate`, using SDV's `get_pii_overlap` and `get_combination_overlap`, plus our own direct check that no value from any `email`, `name`, `address`, `phone`, `card`, `id` or `text` column appears in that column of the output (SDV's checks don't know our `text` type). If any personal or `text` value overlaps, write no file, name the columns, suggest a Settings file change, and exit non-zero. If whole real rows appear (which can happen by chance in small tables), save the file but print a warning with the count only (owner decision, 2026-11-13). Never fix anything automatically.
 - The fitted SDV model is never saved to disk (pickles can contain real values).
 - The tool never calls SDV's demo-dataset download (the only network code in SDV).
-- SDV writes a local `sdv_logs.csv` holding counts only. Don't claim "no files written". Decide during building whether to redirect or disable it.
+- SDV 2.2.0 never writes `sdv_logs.csv` (its logging is off by default). It only copies a small logger settings file, with no data, into the per-user SDV data folder (e.g. `%LOCALAPPDATA%\sdv-dev\sdv`). The README mentions this. A test fails if `sdv_logs.csv` ever appears. Don't claim "no files written" (owner decision, 2026-11-13).
 
 **Commands and options**
 
@@ -169,7 +169,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 | `--delimiter <c>` | both | detected | Override the separator |
 | `--encoding <name>` | both | detected (UTF-8, then cp1252) | Override the encoding |
 | `--decimal <c>` | both | detected | Override the decimal mark |
-| `--fit-rows <n>` | generate | 500 | Learn from a random sample above this size |
+| `--fit-rows <n>` | generate | 100,000 | Learn from a random sample above this size |
 
 - The method is always GaussianCopula. There is no option to choose another.
 - Per-column choices live only in the Settings file. Options are for whole-run choices only.
@@ -208,6 +208,7 @@ The README also states clearly that the tool is not a legal guarantee of anonymi
 **Seams** (agreed with the owner)
 1. **The CLI (main seam).** Tests call `csv-synth inspect` / `generate` in-process (Typer's test runner) on small CSVs in a temp directory, then read the output files. Nearly everything is tested here.
 2. **The overlap check (one extra seam).** The earlier rules prevent leaks, so a real leak is hard to force through the CLI. The check is tested directly: give it a "real" and a "synthetic" table that share values, and assert that it reports the right columns. The CLI test for "check fails → no file written" may also force the check through this seam.
+3. **Personal-data detection (added with owner approval during building).** Detection is tested directly too, because it is cheap and pins down detection bugs.
 
 No other seams. SDV is never mocked. Tests use the real sdv 2.2.0.
 
@@ -242,9 +243,8 @@ No other seams. SDV is never mocked. Tests use the real sdv 2.2.0.
 
 **Verify during building** (open facts, not open decisions)
 - `--seed` gives fully repeatable output with SDV 2.2.0.
-- How long a fit takes at the 500-row `--fit-rows` default and at larger values, so users know the trade-off (owner chose 500 on 2026-11-13).
+- `--fit-rows` default: owner first chose 500, then 100,000 after measurement (100,000 rows: about 90 s and 414 MB on a laptop; 500: about 34 s, 381 MB).
 - The exact command for CPU-only torch on Linux, with `uv tool install`.
-- What to do with SDV's `sdv_logs.csv` (redirect, disable, or document).
 - The offline claim with a real socket-blocked run. The research read the source code but did not run it offline.
 
 **Boundaries for the building agent**

@@ -32,3 +32,4 @@ Decided with the owner on 2026-11-13.
 New options for `generate` and `inspect`: `--delimiter`, `--encoding`, `--decimal`, `--fit-rows`.
 
 _Amended by the owner on 2026-11-13: the `--fit-rows` default is 500, not 100,000._
+_Amended again after measurement: the default is back to 100,000._

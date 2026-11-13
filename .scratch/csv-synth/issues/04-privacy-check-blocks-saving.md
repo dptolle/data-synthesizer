@@ -1,6 +1,6 @@
 # 04: Privacy check blocks saving
 
-**What to build:** Before writing anything, `generate` compares the Synthetic CSV with the prepared real data. If any personal value, or any whole real row, appears in the output, the tool writes no file. It names the overlapping columns, suggests a Settings file fix (e.g. "set column `contact` to type `email`"), and exits with an error code. It never fixes anything by itself. The check is the second agreed test seam: it is tested directly, because the other rules make a real leak hard to produce through the CLI. Build this **test-first**. Source of truth: the spec (`docs/SPEC.md`), "Privacy rules" and "Testing Decisions".
+**What to build:** Before writing anything, `generate` compares the Synthetic CSV with the prepared real data. If any personal value appears in the output, the tool writes no file. (Amended by the owner: whole real rows only produce a warning with a count.) It names the overlapping columns, suggests a Settings file fix (e.g. "set column `contact` to type `email`"), and exits with an error code. It never fixes anything by itself. The check is the second agreed test seam: it is tested directly, because the other rules make a real leak hard to produce through the CLI. Build this **test-first**. Source of truth: the spec (`docs/SPEC.md`), "Privacy rules" and "Testing Decisions".
 
 **Blocked by:** 01 (Walking skeleton)
 

@@ -21,4 +21,6 @@ Decided with the owner on 2026-11-13.
 5. **Overlap check before saving, every run.** The tool uses SDV's `get_pii_overlap` and `get_combination_overlap`. If any personal-data value or any whole real row appears in the output, the tool refuses to write the file and prints what it found.
 6. **No network use.** The tool never calls SDV's demo-download code. A test in the repo proves the tool runs with the network blocked.
 
+_Amended by the owner during building, 2026-11-13: rule 5 now blocks only when a personal-data or free-text value overlaps. Whole real rows (which can match by chance in small tables) produce a warning with a count, not a block._
+
 Consequence: SDV finds personal-data columns by column name only. So the user must be able to see and correct each column's type before synthesis. That belongs to "How does the user review and correct detected Metadata?"
