@@ -37,8 +37,8 @@ def test_fit_rows_must_be_positive(invoke, source_csv):
     assert invoke("generate", source_csv, "--fit-rows", 0).exit_code != 0
 
 
-def test_default_fit_rows_is_500(invoke):
+def test_default_fit_rows_is_100000(invoke):
     result = invoke("generate", "--help")
 
     assert "--fit-rows" in result.output
-    assert "500" in result.output
+    assert "100,000" in result.output

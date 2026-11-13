@@ -1,6 +1,7 @@
 """Privacy rules applied with plain pandas: rare-category merge and the overlap check.
 
-The overlap check: no personal value and no whole real row may appear in the output.
+The overlap check: no personal value may appear in the output (this blocks saving).
+Whole real rows copied by chance only produce a warning with a count.
 Interface: `check_overlap(real, synthetic, column_types)` returns findings,
 `describe(findings)` turns them into messages. Findings hold only column names
 and counts, never data values. The check never fixes anything.
@@ -64,6 +65,11 @@ class Finding:
     column: str | None  # the column for "value", None for "row"
     count: int  # number of distinct shared values / rows
 
+    @property
+    def blocks(self) -> bool:
+        """Shared personal values block saving; copied whole rows only warn."""
+        return self.kind == "value"
+
 
 def check_overlap(
     real: pd.DataFrame, synthetic: pd.DataFrame, column_types: dict[str, str]
@@ -108,9 +114,9 @@ def describe(findings: list[Finding]) -> list[str]:
         else:
             lines.append(
                 f"- {f.count} synthetic row(s) are exact copies of real rows. "
-                "Fix in the Settings file: check that every column holding names, "
-                "emails, ids or similar has a personal type, and that no column "
-                "is marked as safe to copy by mistake."
+                "This can happen by chance in small tables. If the table has "
+                "names, emails, ids or similar, check they have a personal type "
+                "in the Settings file."
             )
     return lines
 
