@@ -102,6 +102,11 @@ def generate(
         min=1,
         help="Category labels seen in fewer rows than this become \"Other\".",
     ),
+    disguise_all: bool = typer.Option(
+        False,
+        "--disguise-all",
+        help="Replace the labels of every category column with stand-ins such as room_1, room_2.",
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -141,6 +146,9 @@ def generate(
         typer.echo("Error: every column is set to drop, so there is nothing to generate.", err=True)
         raise typer.Exit(1)
     real = real[list(types)]
+    to_disguise = set(settings_mod.disguised(chosen))
+    if disguise_all:
+        to_disguise |= {c for c, t in types.items() if t == "category"}
     personal = {c: t for c, t in types.items() if t in settings_mod.FAKED_TYPES}
     total = len(real)
     out_rows = rows if rows is not None else total
@@ -149,7 +157,7 @@ def generate(
             f"Note: the file is large, so the tool learns from a random sample "
             f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
         )
-    synthetic = synthesize(real, out_rows, seed, rare_threshold, types, fit_rows)
+    synthetic = synthesize(real, out_rows, seed, rare_threshold, types, fit_rows, to_disguise)
     # The Settings file's types drive the overlap check.
     findings = privacy.check_overlap(real, synthetic, types)
     blocking = [f for f in findings if f.blocks]
@@ -171,6 +179,11 @@ def generate(
     typer.echo(
         "Faked (personal data): "
         + (", ".join(f"{c} ({t})" for c, t in personal.items()) or "none")
+        + "."
+    )
+    typer.echo(
+        "Disguised (labels replaced by stand-ins): "
+        + (", ".join(c for c in types if c in to_disguise) or "none")
         + "."
     )
     typer.echo("Dropped: " + (", ".join(dropped) or "none") + ".")

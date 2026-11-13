@@ -14,8 +14,7 @@ HEADER = ["column", "type", "action", "format"]
 TYPES = ("email", "name", "address", "phone", "card", "id", "category", "number", "date", "text")
 # Types whose values are always replaced by fake ones.
 FAKED_TYPES = frozenset({"email", "name", "address", "phone", "card", "id", "text"})
-# Actions the tool handles today. `disguise` arrives with its own ticket.
-ACTIONS = ("keep", "drop")
+ACTIONS = ("keep", "drop", "disguise")
 
 
 class SettingsError(Exception):
@@ -78,10 +77,13 @@ def read_settings(path: Path, sep: str | None = None) -> list[Setting]:
                 f"column `{column}`: `{kind}` is not a valid type (use one of {', '.join(TYPES)})"
             )
         if action not in ACTIONS:
-            extra = " (`disguise` is not available yet)" if action == "disguise" else ""
             problems.append(
-                f"column `{column}`: `{action}` is not a valid action{extra} "
+                f"column `{column}`: `{action}` is not a valid action "
                 f"(use one of {', '.join(ACTIONS)})"
+            )
+        elif action == "disguise" and kind != "category":
+            problems.append(
+                f"column `{column}`: `disguise` only works on type `category`, not `{kind}`"
             )
         settings.append(Setting(column, kind, action, fmt))
     if problems:
@@ -112,3 +114,8 @@ def check_matches(settings: list[Setting], df: pd.DataFrame) -> None:
 def types_of_kept(settings: list[Setting]) -> dict[str, str]:
     """Column -> type for every column that is not dropped."""
     return {s.column: s.type for s in settings if s.action != "drop"}
+
+
+def disguised(settings: list[Setting]) -> list[str]:
+    """Columns whose labels are replaced by stand-ins."""
+    return [s.column for s in settings if s.action == "disguise"]

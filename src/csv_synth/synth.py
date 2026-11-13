@@ -95,12 +95,14 @@ def synthesize(
     rare_threshold: int = 5,
     types: dict[str, str] | None = None,
     fit_rows: int | None = None,
+    disguise: frozenset[str] | set[str] = frozenset(),
 ) -> pd.DataFrame:
     """Return `rows` synthetic rows with the same columns as `real`.
 
     `types` maps every column of `real` to its Settings file type (default: detected).
     Personal types are faked; only `category` columns get the rare merge.
-    The fitted model lives only in memory and is never saved.
+    Columns named in `disguise` (must be `category`) get stand-in labels after the
+    rare merge. The fitted model lives only in memory and is never saved.
     """
     from sdv.metadata import Metadata
     from sdv.single_table import GaussianCopulaSynthesizer
@@ -135,6 +137,12 @@ def synthesize(
     for col in categories:
         if not pd.api.types.is_numeric_dtype(data[col]) and not pd.api.types.is_bool_dtype(data[col]):
             data[col] = privacy.merge_rare(data[col], rare_threshold)
+
+    # Label disguise comes after the rare merge. The mapping lives in memory only.
+    disguise_rng = np.random.default_rng(seed)
+    for col in categories:
+        if col in disguise:
+            data[col] = privacy.disguise(data[col], col, disguise_rng)
 
     # Large files: learn from a random sample. Sampling comes after the rare-category
     # merge so that rarity is judged on the full data.

@@ -9,6 +9,7 @@ and counts, never data values. The check never fixes anything.
 
 from dataclasses import dataclass
 
+import numpy as np
 import pandas as pd
 
 
@@ -46,6 +47,23 @@ def merge_rare(series: pd.Series, threshold: int = 5, other: str = "Other") -> p
     if isinstance(out.dtype, pd.CategoricalDtype):
         out = out.cat.remove_unused_categories()
     return out
+
+
+# --- Label disguise --------------------------------------------------------
+
+
+def disguise(series: pd.Series, column: str, rng) -> pd.Series:
+    """Return a copy where each distinct label becomes `<column>_<n>`.
+
+    The labels are shuffled before numbering so the numbers do not reveal their
+    order. Empty values stay empty. The label-to-stand-in mapping exists only
+    inside this call: it is not returned, stored or written anywhere.
+    """
+    labels = list(series.dropna().unique())
+    order = rng.permutation(len(labels))
+    mapping = {label: f"{column}_{int(n) + 1}" for label, n in zip(labels, order)}
+    out = series.astype(object).map(mapping)
+    return out.where(series.notna(), np.nan)
 
 
 # --- Overlap check ----------------------------------------------------------
