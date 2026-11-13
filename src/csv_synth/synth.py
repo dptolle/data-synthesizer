@@ -92,6 +92,7 @@ def synthesize(
     seed: int,
     rare_threshold: int = 5,
     personal: dict[str, str] | None = None,
+    fit_rows: int | None = None,
 ) -> pd.DataFrame:
     """Return `rows` synthetic rows with the same columns as `real`.
 
@@ -130,6 +131,11 @@ def synthesize(
             continue
         if not pd.api.types.is_numeric_dtype(data[col]) and not pd.api.types.is_bool_dtype(data[col]):
             data[col] = privacy.merge_rare(data[col], rare_threshold)
+
+    # Large files: learn from a random sample. Sampling comes after the rare-category
+    # merge so that rarity is judged on the full data.
+    if fit_rows is not None and len(data) > fit_rows:
+        data = data.sample(n=fit_rows, random_state=seed)
 
     metadata = Metadata.detect_from_dataframes({"table": data})
     for col, kind in personal.items():

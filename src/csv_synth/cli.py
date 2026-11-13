@@ -50,6 +50,12 @@ def generate(
         help="Number that makes the output repeatable: same file and same seed give the same result. "
         "Default: a random seed, which is printed.",
     ),
+    fit_rows: int = typer.Option(
+        500,
+        "--fit-rows",
+        min=1,
+        help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 500.",
+    ),
     rare_threshold: int = typer.Option(
         5,
         "--rare-threshold",
@@ -80,9 +86,14 @@ def generate(
 
     real = csvio.read_source(file)
     personal = detect_personal_columns(real)
-    synthetic = synthesize(
-        real, rows if rows is not None else len(real), seed, rare_threshold, personal
-    )
+    total = len(real)
+    out_rows = rows if rows is not None else total
+    if total > fit_rows:
+        typer.echo(
+            f"Note: the file is large, so the tool learns from a random sample "
+            f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
+        )
+    synthetic = synthesize(real, out_rows, seed, rare_threshold, personal, fit_rows)
     # Detected personal column types (email/name/address/...) drive the overlap check.
     findings = privacy.check_overlap(real, synthetic, dict(personal))
     if findings:
