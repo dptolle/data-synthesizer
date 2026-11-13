@@ -69,12 +69,21 @@ def generate(
         seed = random.SystemRandom().randrange(2**32)
     typer.echo(f"Using seed {seed} (pass --seed {seed} to repeat this run).")
 
+    from csv_synth.detect import detect_personal_columns
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    synthetic = synthesize(real, rows if rows is not None else len(real), seed)
+    personal = detect_personal_columns(real)
+    synthetic = synthesize(
+        real, rows if rows is not None else len(real), seed, personal
+    )
     csvio.write_synthetic(synthetic, target)
 
+    typer.echo(
+        "Faked (personal data): "
+        + (", ".join(f"{c} ({t})" for c, t in personal.items()) or "none")
+        + "."
+    )
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
