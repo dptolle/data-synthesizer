@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from csv_synth import privacy
-from csv_synth.detect import detect_personal_columns
+from csv_synth.settings import FAKED_TYPES
 
 # Personal type -> SDV PII sdtype. `pii` stays at its default (True), so Faker
 # generates the values. Never set pii=False: that copies real values.
@@ -18,6 +18,8 @@ _PII_SDTYPE = {
     "address": "street_address",
     "phone": "phone_number",
     "card": "credit_card_number",
+    # Free text is faked as a PII column until it gets its own handling.
+    "text": "street_address",
 }
 
 _RUN = re.compile(r"\d+|[A-Z]+|[a-z]+|.", re.S)
@@ -91,12 +93,13 @@ def synthesize(
     rows: int,
     seed: int,
     rare_threshold: int = 5,
-    personal: dict[str, str] | None = None,
+    types: dict[str, str] | None = None,
     fit_rows: int | None = None,
 ) -> pd.DataFrame:
     """Return `rows` synthetic rows with the same columns as `real`.
 
-    Personal columns (`personal`, default: detected from `real`) are faked.
+    `types` maps every column of `real` to its Settings file type (default: detected).
+    Personal types are faked; only `category` columns get the rare merge.
     The fitted model lives only in memory and is never saved.
     """
     from sdv.metadata import Metadata
@@ -110,9 +113,12 @@ def synthesize(
     # and put them back empty afterwards.
     empty = [c for c in real.columns if real[c].isna().all()]
     data = real.drop(columns=empty)
-    if personal is None:
-        personal = detect_personal_columns(real)
-    personal = {c: t for c, t in personal.items() if c in data.columns}
+    if types is None:
+        from csv_synth.settings import detect_settings
+
+        types = {s.column: s.type for s in detect_settings(real)}
+    personal = {c: t for c, t in types.items() if t in FAKED_TYPES and c in data.columns}
+    categories = [c for c, t in types.items() if t == "category" and c in data.columns]
 
     id_info = {}
     for col, kind in personal.items():
@@ -126,9 +132,7 @@ def synthesize(
     # Rare categories could identify someone: merge them before SDV sees them.
     # Only `category` columns: personal columns are faked, so merging them would
     # collapse all-unique values to "Other" first.
-    for col in data.columns:
-        if col in personal:
-            continue
+    for col in categories:
         if not pd.api.types.is_numeric_dtype(data[col]) and not pd.api.types.is_bool_dtype(data[col]):
             data[col] = privacy.merge_rare(data[col], rare_threshold)
 
@@ -145,6 +149,8 @@ def synthesize(
             )
         else:
             metadata.update_column(col, "table", sdtype=_PII_SDTYPE[kind])
+    for col in categories:
+        metadata.update_column(col, "table", sdtype="categorical")
     synthesizer = GaussianCopulaSynthesizer(metadata, enforce_min_max_values=False)
     synthesizer.fit({"table": data})
     out = synthesizer.sample(num_rows=rows)["table"]
