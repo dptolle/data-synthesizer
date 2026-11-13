@@ -18,8 +18,6 @@ _PII_SDTYPE = {
     "address": "street_address",
     "phone": "phone_number",
     "card": "credit_card_number",
-    # Free text is faked as a PII column until it gets its own handling.
-    "text": "street_address",
 }
 
 _RUN = re.compile(r"\d+|[A-Z]+|[a-z]+|.", re.S)
@@ -88,6 +86,14 @@ def _renew_ids(values: pd.Series, real: set, shape: tuple, unique: bool, rng) ->
     return pd.Series(out, index=values.index)
 
 
+def _fake_sentence(fake, length: int) -> str:
+    """Fake sentences of about `length` characters."""
+    if length < 5:
+        return fake.pystr(min_chars=max(length, 1), max_chars=max(length, 1))
+    text = fake.text(max_nb_chars=max(length, 5))
+    return " ".join(text.split())
+
+
 def synthesize(
     real: pd.DataFrame,
     rows: int,
@@ -117,7 +123,14 @@ def synthesize(
         from csv_synth.settings import detect_settings
 
         types = {s.column: s.type for s in detect_settings(real)}
-    personal = {c: t for c, t in types.items() if t in FAKED_TYPES and c in data.columns}
+    personal = {
+        c: t for c, t in types.items() if t in FAKED_TYPES and t != "text" and c in data.columns
+    }
+    # Free text never goes to SDV: it is replaced after sampling.
+    texts = [c for c, t in types.items() if t == "text" and c in data.columns]
+    text_info = {c: data[c].dropna().astype(str).str.len().tolist() for c in texts}
+    text_null = {c: float(data[c].isna().mean()) for c in texts}
+    data = data.drop(columns=texts)
     categories = [c for c, t in types.items() if t == "category" and c in data.columns]
 
     id_info = {}
@@ -158,6 +171,19 @@ def synthesize(
     id_rng = random.Random(seed)
     for col, (shape, real_ids, unique) in id_info.items():
         out[col] = _renew_ids(out[col], real_ids, shape, unique, id_rng)
+
+    if texts:
+        from faker import Faker
+
+        fake = Faker()
+        fake.seed_instance(seed)
+        rng = random.Random(seed)
+        for col in texts:
+            lengths = text_info[col] or [40]
+            out[col] = [
+                None if rng.random() < text_null[col] else _fake_sentence(fake, rng.choice(lengths))
+                for _ in range(len(out))
+            ]
 
     for col in empty:
         out[col] = np.nan

@@ -2,17 +2,24 @@
 
 SDV's own detection looks at column names only, so a column called `contact`
 that holds emails would be copied. Here values are checked as well.
-Types: email, name, address, phone, card, id.
+Types: email, name, address, phone, card, id, text.
 """
 
 import re
 
 import pandas as pd
 
-PERSONAL_TYPES = ("email", "name", "address", "phone", "card", "id")
+PERSONAL_TYPES = ("email", "name", "address", "phone", "card", "id", "text")
 
 # Share of non-empty values that must match a pattern to call the column that type.
 _MATCH_SHARE = 0.8
+
+# Free text: non-numeric, at least 90% of values distinct, and sentence-like
+# (at least 80% contain a space, mean length at least 15 characters). Chosen so
+# that unique short codes and labels stay out, while notes and comments are in.
+_TEXT_UNIQUE = 0.9
+_TEXT_SPACED = 0.8
+_TEXT_MIN_LENGTH = 15
 
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE = re.compile(r"^\+?[\d\s().\-/]{7,25}$")
@@ -87,6 +94,16 @@ def _by_name(column: str, values: pd.Series) -> str | None:
     return None
 
 
+def _is_text(raw: pd.Series, values: pd.Series) -> bool:
+    if pd.api.types.is_numeric_dtype(raw) or pd.api.types.is_datetime64_any_dtype(raw):
+        return False
+    return (
+        values.nunique() / len(values) >= _TEXT_UNIQUE
+        and _share(values, lambda v: " " in v) >= _TEXT_SPACED
+        and values.str.len().mean() >= _TEXT_MIN_LENGTH
+    )
+
+
 def detect_personal_columns(df: pd.DataFrame) -> dict[str, str]:
     """Map each personal column to its type. Columns that are not personal are left out."""
     found: dict[str, str] = {}
@@ -96,6 +113,8 @@ def detect_personal_columns(df: pd.DataFrame) -> dict[str, str]:
         if values.empty:
             continue
         kind = _by_value(values) or _by_name(col, values)
+        if kind is None and _is_text(df[col], values):
+            kind = "text"
         if kind:
             found[col] = kind
     return found

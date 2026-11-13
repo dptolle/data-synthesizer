@@ -41,6 +41,7 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
                 "country": rng.choice(countries),
                 "total_price": price,
                 "rating": rng.choice([None, round(rng.uniform(1, 5), 1)]),
+                "guest_notes": f"{fake.sentence(nb_words=10)} {fake.sentence(nb_words=6)}",
                 "breakfast_included": rng.choice(["yes", "no"]),
             }
         )
