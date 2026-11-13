@@ -50,6 +50,12 @@ def generate(
         help="Number that makes the output repeatable: same file and same seed give the same result. "
         "Default: a random seed, which is printed.",
     ),
+    fit_rows: int = typer.Option(
+        500,
+        "--fit-rows",
+        min=1,
+        help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 500.",
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -72,7 +78,15 @@ def generate(
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    synthetic = synthesize(real, rows if rows is not None else len(real), seed)
+    total = len(real)
+    out_rows = rows if rows is not None else total
+    if total > fit_rows:
+        real = real.sample(n=fit_rows, random_state=seed)
+        typer.echo(
+            f"Note: the file is large, so the tool learns from a random sample "
+            f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
+        )
+    synthetic = synthesize(real, out_rows, seed)
     csvio.write_synthetic(synthetic, target)
 
     typer.echo(
