@@ -137,3 +137,37 @@ def test_disguise_all_skips_dropped_columns(invoke, hotel):
     r, out = _run(invoke, hotel, "--disguise-all")
     assert r.exit_code == 0, r.output
     assert "view" not in pd.read_csv(out).columns
+
+
+def test_disguised_column_also_disguises_the_merged_other_label(invoke, tmp_path):
+    rng = np.random.default_rng(9)
+    n = 200
+    labels = list(rng.choice(["a", "b"], n - 2)) + ["rare1", "rare2"]
+    p = tmp_path / "s.csv"
+    pd.DataFrame({"x": rng.normal(size=n), "acct": labels}).to_csv(p, index=False)
+    invoke("inspect", p)
+    _set(p.with_name("s_settings.csv"), "acct", action="disguise")
+    out = tmp_path / "o.csv"
+    r = invoke("generate", p, "--seed", 1, "--rows", 500, "-o", out)
+    assert r.exit_code == 0, r.output
+    assert "Other" not in set(pd.read_csv(out)["acct"])
+
+
+def test_disguise_all_is_recorded_in_a_new_settings_file(invoke, hotel):
+    r, out = _run(invoke, hotel, "--disguise-all")
+    assert r.exit_code == 0, r.output
+    s = pd.read_csv(
+        hotel.with_name("hotel_settings.csv"), dtype=str, keep_default_na=False,
+        encoding="utf-8-sig",
+    ).set_index("column")
+    assert s.loc["room", "action"] == "disguise" and s.loc["view", "action"] == "disguise"
+    assert s.loc["price", "action"] == "keep"
+
+
+def test_disguise_all_never_modifies_a_settings_file_that_was_read(invoke, hotel):
+    invoke("inspect", hotel)
+    path = hotel.with_name("hotel_settings.csv")
+    before = path.read_bytes()
+    r, out = _run(invoke, hotel, "--disguise-all")
+    assert r.exit_code == 0, r.output
+    assert path.read_bytes() == before

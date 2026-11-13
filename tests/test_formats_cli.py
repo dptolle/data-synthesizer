@@ -120,3 +120,32 @@ def test_privacy_failure_does_not_overwrite_a_settings_file_that_was_read(
 
     assert result.exit_code != 0
     assert s.read_bytes() == before
+
+
+def test_write_synthetic_replaces_and_counts_unencodable_characters(tmp_path):
+    from csv_synth.csvio import CsvFormat, write_synthetic
+
+    df = pd.DataFrame({"a": ["ł", "ok", "łł"], "b": [1, 2, 3]})
+    path = tmp_path / "o.csv"
+    count = write_synthetic(df, path, CsvFormat(",", "cp1252", "."))
+    assert count == 3
+    assert path.read_bytes().decode("cp1252").splitlines()[1] == "?,1"
+    assert write_synthetic(df[["b"]], path, CsvFormat()) == 0
+
+
+def test_generate_warns_with_a_count_but_no_values_for_replaced_characters(
+    invoke, messy, monkeypatch
+):
+    import csv_synth.synth as synth_mod
+
+    def fake(real, rows, *args, **kwargs):
+        out = real.head(5).copy()
+        out["Café"] = "ł"
+        return out
+
+    monkeypatch.setattr(synth_mod, "synthesize", fake)
+    result = invoke("generate", messy, "--seed", 1)
+
+    assert result.exit_code == 0, result.output
+    assert "Warning" in result.output and "5 character" in result.output
+    assert "ł" not in result.output

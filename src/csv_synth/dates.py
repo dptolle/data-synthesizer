@@ -48,6 +48,15 @@ def guess(series: pd.Series) -> tuple[bool, str]:
     return (True, "") if any_style.mean() >= _DATE_SHARE else (False, "")
 
 
+_SWAPPED = {"%m/%d/%Y": "%d/%m/%Y", "%m/%d/%Y %H:%M:%S": "%d/%m/%Y %H:%M:%S"}
+
+
+def is_ambiguous(series: pd.Series, fmt: str) -> bool:
+    """True if `fmt` is month-first slash style and day-first fits every value too."""
+    other = _SWAPPED.get(fmt)
+    return bool(other) and bool(_parses(_clean(series), other).all())
+
+
 def misfits(series: pd.Series, fmt: str) -> int:
     """How many non-empty values do not match `fmt`."""
     return int((~_parses(_clean(series), fmt)).sum())
