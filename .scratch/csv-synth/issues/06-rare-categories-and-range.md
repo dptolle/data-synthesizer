@@ -4,13 +4,13 @@
 
 **Blocked by:** 01 (Walking skeleton)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] In `category` columns, labels seen in fewer than `--rare-threshold` rows (default 5) become "Other". This happens with plain pandas, before fitting.
-- [ ] Empty values are not counted or merged.
-- [ ] If "Other" already exists as a real label, an unused name is chosen instead.
-- [ ] Columns with a pandas `category` dtype work (the new label is added first).
-- [ ] A column where every label is rare becomes a single label, without crashing.
-- [ ] A column with only one value keeps it: it is a Shared label, not a Rare category.
-- [ ] The synthesizer uses `enforce_min_max_values=False`. A test shows the real min and max of a number column are not reproduced exactly.
-- [ ] The Sample CSV script adds rare categories (e.g. one-off corporate account names).
+- [x] In `category` columns, labels seen in fewer than `--rare-threshold` rows (default 5) become "Other". This happens with plain pandas, before fitting.
+- [x] Empty values are not counted or merged.
+- [x] If "Other" already exists as a real label, an unused name is chosen instead.
+- [x] Columns with a pandas `category` dtype work (the new label is added first).
+- [x] A column where every label is rare becomes a single label, without crashing.
+- [x] A column with only one value keeps it: it is a Shared label, not a Rare category.
+- [x] The synthesizer uses `enforce_min_max_values=False`. A test shows the real min and max of a number column are not reproduced exactly.
+- [x] The Sample CSV script adds rare categories (e.g. one-off corporate account names).
