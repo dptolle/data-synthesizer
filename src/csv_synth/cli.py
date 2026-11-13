@@ -50,6 +50,12 @@ def generate(
         help="Number that makes the output repeatable: same file and same seed give the same result. "
         "Default: a random seed, which is printed.",
     ),
+    rare_threshold: int = typer.Option(
+        5,
+        "--rare-threshold",
+        min=1,
+        help="Category labels seen in fewer rows than this become \"Other\".",
+    ),
 ) -> None:
     """Read FILE and write a Synthetic CSV next to it."""
     if not file.is_file():
@@ -72,7 +78,7 @@ def generate(
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    synthetic = synthesize(real, rows if rows is not None else len(real), seed)
+    synthetic = synthesize(real, rows if rows is not None else len(real), seed, rare_threshold)
     csvio.write_synthetic(synthetic, target)
 
     typer.echo(
