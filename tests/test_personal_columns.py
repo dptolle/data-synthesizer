@@ -128,3 +128,19 @@ def test_summary_lists_faked_columns_by_name_only(invoke, personal_df, tmp_path)
         assert col in result.output
         for v in personal_df[col].head(20).astype(str):
             assert v not in result.output
+
+
+def test_rare_merge_applies_only_to_category_columns(invoke, personal_df, tmp_path, monkeypatch):
+    from csv_synth import privacy
+
+    seen = []
+    real_merge = privacy.merge_rare
+
+    def spy(series, *a, **k):
+        seen.append(series.name)
+        return real_merge(series, *a, **k)
+
+    monkeypatch.setattr(privacy, "merge_rare", spy)
+    personal_df["room_type"] = ["single", "double", "suite"] * (N // 3)
+    _generate(invoke, personal_df, tmp_path)
+    assert seen == ["room_type"]

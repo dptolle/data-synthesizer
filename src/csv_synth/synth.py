@@ -7,6 +7,7 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 
+from csv_synth import privacy
 from csv_synth.detect import detect_personal_columns
 
 # Personal type -> SDV PII sdtype. `pii` stays at its default (True), so Faker
@@ -89,6 +90,7 @@ def synthesize(
     real: pd.DataFrame,
     rows: int,
     seed: int,
+    rare_threshold: int = 5,
     personal: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Return `rows` synthetic rows with the same columns as `real`.
@@ -119,6 +121,15 @@ def synthesize(
             shape = Counter(_shape(v) for v in text.dropna()).most_common(1)[0][0]
             shape = _fix_constant_letters(shape, [v for v in text.dropna() if _shape(v) == shape])
             id_info[col] = (shape, set(text.dropna()), bool(text.dropna().is_unique))
+
+    # Rare categories could identify someone: merge them before SDV sees them.
+    # Only `category` columns: personal columns are faked, so merging them would
+    # collapse all-unique values to "Other" first.
+    for col in data.columns:
+        if col in personal:
+            continue
+        if not pd.api.types.is_numeric_dtype(data[col]) and not pd.api.types.is_bool_dtype(data[col]):
+            data[col] = privacy.merge_rare(data[col], rare_threshold)
 
     metadata = Metadata.detect_from_dataframes({"table": data})
     for col, kind in personal.items():
