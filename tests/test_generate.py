@@ -84,8 +84,8 @@ def test_no_files_written_besides_outputs(invoke, source_csv, monkeypatch):
     before = {p.name for p in source_csv.parent.iterdir()}
     assert invoke("generate", source_csv).exit_code == 0
     new = {p.name for p in source_csv.parent.iterdir()} - before
-    # sdv_logs.csv is handled in ticket 02
-    assert new - {"sdv_logs.csv"} == {"hotel_synthetic.csv"}
+    # SDV 2.2.0 ships with log_registry: null, so it writes no sdv_logs.csv here.
+    assert new == {"hotel_synthetic.csv"}
 
 
 def test_help_explains_every_option(invoke):

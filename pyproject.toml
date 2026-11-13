@@ -13,7 +13,7 @@ dependencies = [
 csv-synth = "csv_synth.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=8", "faker>=25"]
+dev = ["pytest>=8", "faker>=25", "pytest-socket>=0.7"]
 
 [build-system]
 requires = ["hatchling"]

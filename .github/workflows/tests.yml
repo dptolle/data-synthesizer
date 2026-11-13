@@ -1,0 +1,55 @@
+name: tests
+
+on: push
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-latest is an Apple-chip (arm64) runner. Intel Macs are not supported.
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.14"]
+    env:
+      # Same CPU-only torch index the README tip uses for Linux (ticket 12).
+      TORCH_CPU_INDEX: https://download.pytorch.org/whl/cpu
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      # Linux: PyPI's default torch pulls several GB of CUDA packages.
+      # The CPU index has a plain wheel. Windows and macOS wheels are already CPU.
+      - name: Install for tests (Linux, CPU-only torch)
+        if: runner.os == 'Linux'
+        run: |
+          uv venv --python ${{ matrix.python }}
+          uv pip install -e . --group dev --index "$TORCH_CPU_INDEX"
+
+      - name: Install for tests (Windows, macOS)
+        if: runner.os != 'Linux'
+        run: |
+          uv venv --python ${{ matrix.python }}
+          uv pip install -e . --group dev
+
+      - name: Run the tests
+        run: uv run --no-sync pytest -v
+
+      # The way users install the tool: uv tool install from the repo.
+      - name: Install as a tool (Linux, CPU-only torch)
+        if: runner.os == 'Linux'
+        run: uv tool install --python ${{ matrix.python }} --index "$TORCH_CPU_INDEX" "$GITHUB_WORKSPACE"
+
+      - name: Install as a tool (Windows, macOS)
+        if: runner.os != 'Linux'
+        run: uv tool install --python ${{ matrix.python }} "$GITHUB_WORKSPACE"
+
+      - name: Run the installed csv-synth command
+        run: |
+          "$(uv tool dir --bin)/csv-synth" --help
+          "$(uv tool dir --bin)/csv-synth" generate --help
