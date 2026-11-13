@@ -4,11 +4,11 @@
 
 **Blocked by:** 06 (Rare categories and the real range), 07 (Settings file workflow)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Disguise is done with plain pandas before fitting: shuffle the distinct labels, number them, and keep the mapping in memory only. RDT's `PseudoAnonymizedFaker` is NOT used.
-- [ ] Disguise runs after the rare-category merge.
-- [ ] `disguise` in the Settings file works per column. `--disguise-all` applies it to every `category` column.
-- [ ] `disguise` on any type other than `category` stops the tool with a clear message.
-- [ ] Tests: no real label appears in a disguised column; label shares in the output are close to the input's; the mapping appears in no file the tool writes.
-- [ ] The summary lists disguised columns.
+- [x] Disguise is done with plain pandas before fitting: shuffle the distinct labels, number them, and keep the mapping in memory only. RDT's `PseudoAnonymizedFaker` is NOT used.
+- [x] Disguise runs after the rare-category merge.
+- [x] `disguise` in the Settings file works per column. `--disguise-all` applies it to every `category` column.
+- [x] `disguise` on any type other than `category` stops the tool with a clear message.
+- [x] Tests: no real label appears in a disguised column; label shares in the output are close to the input's; the mapping appears in no file the tool writes.
+- [x] The summary lists disguised columns.

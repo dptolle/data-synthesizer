@@ -4,11 +4,11 @@
 
 **Blocked by:** 09 (Messy CSV formats)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Date columns are detected as `date`. Their format (e.g. `%d.%m.%Y`, `%Y-%m-%d`, `%m/%d/%Y`) is filled in the `format` column.
-- [ ] Dates are synthesized as SDV `datetime` with that format, and written in the same format.
-- [ ] A format corrected in the Settings file is used.
-- [ ] A column with mixed date styles stops the tool and asks the user to set the format in the Settings file.
-- [ ] Real min/max dates are not reproduced exactly (follows from ticket 06).
-- [ ] The Sample CSV script adds check-in and check-out dates in both sample variants.
+- [x] Date columns are detected as `date`. Their format (e.g. `%d.%m.%Y`, `%Y-%m-%d`, `%m/%d/%Y`) is filled in the `format` column.
+- [x] Dates are synthesized as SDV `datetime` with that format, and written in the same format.
+- [x] A format corrected in the Settings file is used.
+- [x] A column with mixed date styles stops the tool and asks the user to set the format in the Settings file.
+- [x] Real min/max dates are not reproduced exactly (follows from ticket 06).
+- [x] The Sample CSV script adds check-in and check-out dates in both sample variants.
