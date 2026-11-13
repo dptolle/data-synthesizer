@@ -102,13 +102,15 @@ def synthesize(
     types: dict[str, str] | None = None,
     fit_rows: int | None = None,
     disguise: frozenset[str] | set[str] = frozenset(),
+    date_formats: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Return `rows` synthetic rows with the same columns as `real`.
 
     `types` maps every column of `real` to its Settings file type (default: detected).
     Personal types are faked; only `category` columns get the rare merge.
     Columns named in `disguise` (must be `category`) get stand-in labels after the
-    rare merge. The fitted model lives only in memory and is never saved.
+    rare merge. `date_formats` maps date columns to their format; SDV models them as
+    datetime and they are written back in that format. The fitted model lives only in memory and is never saved.
     """
     from sdv.metadata import Metadata
     from sdv.single_table import GaussianCopulaSynthesizer
@@ -172,6 +174,9 @@ def synthesize(
             metadata.update_column(col, "table", sdtype=_PII_SDTYPE[kind])
     for col in categories:
         metadata.update_column(col, "table", sdtype="categorical")
+    for col, fmt in (date_formats or {}).items():
+        if col in data.columns:
+            metadata.update_column(col, "table", sdtype="datetime", datetime_format=fmt)
     synthesizer = GaussianCopulaSynthesizer(metadata, enforce_min_max_values=False)
     synthesizer.fit({"table": data})
     out = synthesizer.sample(num_rows=rows)["table"]

@@ -5,6 +5,7 @@ Usage: uv run python scripts/make_sample_csv.py [output.csv] [rows]
 
 import random
 import sys
+from datetime import date, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -25,6 +26,7 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
         room = rng.choices(room_types, weights=[4, 8, 2, 3])[0]
         nights = rng.randint(1, 14)
         base = {"single": 80, "double": 120, "suite": 260, "family": 170}[room]
+        check_in = date(2024, 1, 1) + timedelta(days=rng.randint(0, 600))
         price = round(base * nights * rng.uniform(0.85, 1.2), 2)
         records.append(
             {
@@ -34,6 +36,8 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
                 "phone": fake.numerify("+49 ### #######"),
                 "address": fake.street_address(),
                 "card_number": fake.credit_card_number("visa16"),
+                "check_in": check_in.isoformat(),
+                "check_out": (check_in + timedelta(days=nights)).isoformat(),
                 "nights": nights,
                 "adults": rng.randint(1, 4),
                 "account": rng.choice(accounts),
@@ -58,5 +62,8 @@ if __name__ == "__main__":
     sample.to_csv(out, index=False)
     # Same rows as a European Excel export: `;`, decimal comma, cp1252.
     messy = out.with_name(f"{out.stem}_messy{out.suffix}")
-    sample.to_csv(messy, index=False, sep=";", decimal=",", encoding="cp1252", errors="replace")
+    european = sample.copy()
+    for col in ("check_in", "check_out"):
+        european[col] = pd.to_datetime(european[col]).dt.strftime("%d.%m.%Y")
+    european.to_csv(messy, index=False, sep=";", decimal=",", encoding="cp1252", errors="replace")
     print(f"Wrote {n} fake rows to {out} and {messy}")

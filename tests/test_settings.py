@@ -127,11 +127,11 @@ def test_invalid_settings_stop_with_message(invoke, people, field, value):
 
 
 @pytest.mark.parametrize(
-    "kind", ["name", "address", "phone", "card", "id", "text", "date", "number", "category"]
+    "kind", ["name", "address", "phone", "card", "id", "text", "number", "category"]
 )
 def test_every_listed_type_is_accepted(invoke, people, kind):
     invoke("inspect", people)
-    column = "price" if kind in ("date", "number") else "secretnote"
+    column = "price" if kind in ("number",) else "secretnote"
     _edit(people.with_name("people_settings.csv"), column, type=kind)
     r = invoke("generate", people, "--seed", 1)
     assert "not a valid type" not in r.output

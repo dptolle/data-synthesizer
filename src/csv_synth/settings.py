@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from csv_synth import dates
 from csv_synth.detect import detect_personal_columns
 
 HEADER = ["column", "type", "action", "format"]
@@ -34,6 +35,11 @@ def detect_settings(df: pd.DataFrame) -> list[Setting]:
     personal = detect_personal_columns(df)
     out = []
     for col in df.columns:
+        # Dates first: ISO dates look like phone numbers to the personal-data patterns.
+        is_date, fmt = dates.guess(df[col])
+        if is_date:
+            out.append(Setting(str(col), "date", format=fmt))
+            continue
         if col in personal:
             kind = personal[col]
         elif pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_bool_dtype(df[col]):
@@ -102,6 +108,19 @@ def check_matches(settings: list[Setting], df: pd.DataFrame) -> None:
             "The CSV and the Settings file do not match:\n- " + "\n- ".join(problems)
         )
     for s in settings:
+        if s.type == "date" and s.action != "drop":
+            if not s.format:
+                raise SettingsError(
+                    f"Column `{s.column}` is a date column but has no date format "
+                    "(its dates may mix several styles). "
+                    "Set the format in the Settings file, for example %d.%m.%Y or %Y-%m-%d."
+                )
+            bad = dates.misfits(df[s.column], s.format)
+            if bad:
+                raise SettingsError(
+                    f"{bad} value(s) in column `{s.column}` do not match the date format "
+                    f"`{s.format}`. Fix the format in the Settings file, or the values in the CSV."
+                )
         if s.type == "number" and s.action == "keep":
             col = df[s.column]
             if not pd.api.types.is_numeric_dtype(col) or pd.api.types.is_bool_dtype(col):
@@ -119,3 +138,8 @@ def types_of_kept(settings: list[Setting]) -> dict[str, str]:
 def disguised(settings: list[Setting]) -> list[str]:
     """Columns whose labels are replaced by stand-ins."""
     return [s.column for s in settings if s.action == "disguise"]
+
+
+def date_formats(settings: list[Setting]) -> dict[str, str]:
+    """Column -> date format for every kept date column."""
+    return {s.column: s.format for s in settings if s.type == "date" and s.action != "drop"}
