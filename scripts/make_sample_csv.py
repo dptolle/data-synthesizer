@@ -21,13 +21,19 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
     accounts = ["walk-in", "online", "agency"]
     one_offs = [fake.company() for _ in range(max(3, rows // 50))]
     records = []
-    for _ in range(rows):
+    for i in range(rows):
         room = rng.choices(room_types, weights=[4, 8, 2, 3])[0]
         nights = rng.randint(1, 14)
         base = {"single": 80, "double": 120, "suite": 260, "family": 170}[room]
         price = round(base * nights * rng.uniform(0.85, 1.2), 2)
         records.append(
             {
+                "booking_id": f"BK-{100000 + i}",
+                "guest_name": fake.name(),
+                "email": fake.email(),
+                "phone": fake.numerify("+49 ### #######"),
+                "address": fake.street_address(),
+                "card_number": fake.credit_card_number("visa16"),
                 "nights": nights,
                 "adults": rng.randint(1, 4),
                 "account": rng.choice(accounts),

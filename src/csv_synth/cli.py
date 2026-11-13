@@ -75,13 +75,16 @@ def generate(
         seed = random.SystemRandom().randrange(2**32)
     typer.echo(f"Using seed {seed} (pass --seed {seed} to repeat this run).")
 
+    from csv_synth.detect import detect_personal_columns
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    synthetic = synthesize(real, rows if rows is not None else len(real), seed, rare_threshold)
-    # Column types: none yet (ticket 03 supplies them); the whole-row check still runs.
-    column_types: dict[str, str] = {}
-    findings = privacy.check_overlap(real, synthetic, column_types)
+    personal = detect_personal_columns(real)
+    synthetic = synthesize(
+        real, rows if rows is not None else len(real), seed, rare_threshold, personal
+    )
+    # Detected personal column types (email/name/address/...) drive the overlap check.
+    findings = privacy.check_overlap(real, synthetic, dict(personal))
     if findings:
         typer.echo(
             "Error: the privacy check failed, so no file was written. "
@@ -94,6 +97,11 @@ def generate(
 
     csvio.write_synthetic(synthetic, target)
 
+    typer.echo(
+        "Faked (personal data): "
+        + (", ".join(f"{c} ({t})" for c, t in personal.items()) or "none")
+        + "."
+    )
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
