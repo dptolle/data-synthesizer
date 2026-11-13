@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from csv_synth.synth import Synthesis
+
 
 @pytest.fixture
 def messy(tmp_path):
@@ -95,7 +97,7 @@ def test_privacy_failure_still_writes_settings_but_no_synthetic(invoke, tmp_path
     import csv_synth.synth
 
     src = _people(tmp_path)
-    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: real.copy())
+    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: Synthesis(real.copy(), real, None))
 
     result = invoke("generate", src)
 
@@ -114,7 +116,7 @@ def test_privacy_failure_does_not_overwrite_a_settings_file_that_was_read(
     invoke("inspect", src)
     s = tmp_path / "people_settings.csv"
     before = s.read_bytes()
-    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: real.copy())
+    monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: Synthesis(real.copy(), real, None))
 
     result = invoke("generate", src)
 
@@ -141,7 +143,7 @@ def test_generate_warns_with_a_count_but_no_values_for_replaced_characters(
     def fake(real, rows, *args, **kwargs):
         out = real.head(5).copy()
         out["Café"] = "ł"
-        return out
+        return Synthesis(out, real, None)
 
     monkeypatch.setattr(synth_mod, "synthesize", fake)
     result = invoke("generate", messy, "--seed", 1)

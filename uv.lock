@@ -97,26 +97,26 @@ name = "csv-synth"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "faker" },
     { name = "sdv" },
     { name = "typer" },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "faker" },
     { name = "pytest" },
     { name = "pytest-socket" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "faker", specifier = ">=25" },
     { name = "sdv", specifier = "==2.2.0" },
     { name = "typer", specifier = ">=0.12" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "faker", specifier = ">=25" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-socket", specifier = ">=0.7" },
 ]

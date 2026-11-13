@@ -130,17 +130,9 @@ def test_summary_lists_faked_columns_by_name_only(invoke, personal_df, tmp_path)
             assert v not in result.output
 
 
-def test_rare_merge_applies_only_to_category_columns(invoke, personal_df, tmp_path, monkeypatch):
-    from csv_synth import privacy
-
-    seen = []
-    real_merge = privacy.merge_rare
-
-    def spy(series, *a, **k):
-        seen.append(series.name)
-        return real_merge(series, *a, **k)
-
-    monkeypatch.setattr(privacy, "merge_rare", spy)
+def test_rare_merge_applies_only_to_category_columns(invoke, personal_df, tmp_path):
+    # Every personal value is unique (rare), but it is faked, not merged into "Other".
     personal_df["room_type"] = ["single", "double", "suite"] * (N // 3)
-    _generate(invoke, personal_df, tmp_path)
-    assert seen == ["room_type"]
+    _, out = _generate(invoke, personal_df, tmp_path)
+    for col in PERSONAL:
+        assert "Other" not in set(out[col])

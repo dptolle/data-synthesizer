@@ -3,6 +3,7 @@
 import random
 import re
 from collections import Counter
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,18 @@ _PII_SDTYPE = {
     "phone": "phone_number",
     "card": "credit_card_number",
 }
+# Faker method that draws a new value when a generated one equals a real one.
+_FAKER_METHOD = {
+    "email": "email",
+    "name": "name",
+    "address": "street_address",
+    "phone": "phone_number",
+    "card": "credit_card_number",
+}
+assert set(_PII_SDTYPE) | {"id", "text"} == FAKED_TYPES  # one shared set of personal types
+
+_TABLE = "table"
+_REDRAW_TRIES = 20
 
 _RUN = re.compile(r"\d+|[A-Z]+|[a-z]+|.", re.S)
 _ALPHABET = {"d": "0123456789", "U": "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "l": "abcdefghijklmnopqrstuvwxyz"}
@@ -94,6 +107,48 @@ def _fake_sentence(fake, length: int) -> str:
     return " ".join(text.split())
 
 
+def _redraw(values: pd.Series, real_values: set, draw) -> pd.Series:
+    """Draw a new value for every cell that equals a real value (a few tries each)."""
+    out = list(values)
+    for i, v in enumerate(out):
+        tries = 0
+        while pd.notna(v) and str(v) in real_values and tries < _REDRAW_TRIES:
+            v = draw()
+            tries += 1
+        out[i] = v
+    return pd.Series(out, index=values.index)
+
+
+def _real_values(series: pd.Series) -> set:
+    return {str(v) for v in series.dropna()}
+
+
+# --- SDV evaluation calls (the only place the rest of the tool reaches SDV's checks) ---
+
+
+def pii_overlap(real: pd.DataFrame, synthetic: pd.DataFrame, column: str) -> int:
+    """How many distinct values of `column` appear in both tables (SDV's PII overlap)."""
+    from sdv.evaluation.utils import get_pii_overlap
+
+    return get_pii_overlap({_TABLE: real}, {_TABLE: synthetic}, _TABLE, column, verbose=False)
+
+
+def combination_overlap(real: pd.DataFrame, synthetic: pd.DataFrame, columns: list) -> int:
+    """How many rows (over `columns`) appear in both tables (SDV's combination overlap)."""
+    from sdv.evaluation.utils import get_combination_overlap
+
+    return get_combination_overlap(
+        {_TABLE: real}, {_TABLE: synthetic}, _TABLE, columns, verbose=False
+    )
+
+
+@dataclass
+class Synthesis:
+    synthetic: pd.DataFrame
+    prepared: pd.DataFrame  # the real data after drop, rare merge and disguise: what the overlap check compares
+    quality: float | None  # SDV quality score, 0 to 1; None if SDV could not compute it
+
+
 def synthesize(
     real: pd.DataFrame,
     rows: int,
@@ -103,8 +158,8 @@ def synthesize(
     fit_rows: int | None = None,
     disguise: frozenset[str] | set[str] = frozenset(),
     date_formats: dict[str, str] | None = None,
-) -> pd.DataFrame:
-    """Return `rows` synthetic rows with the same columns as `real`.
+) -> Synthesis:
+    """Return `rows` synthetic rows with the same columns as `real`, plus the prepared real data.
 
     `types` maps every column of `real` to its Settings file type (default: detected).
     Personal types are faked; only `category` columns get the rare merge.
@@ -112,6 +167,8 @@ def synthesize(
     rare merge. `date_formats` maps date columns to their format; SDV models them as
     datetime and they are written back in that format. The fitted model lives only in memory and is never saved.
     """
+    from faker import Faker
+    from sdv.evaluation import evaluate_quality
     from sdv.metadata import Metadata
     from sdv.single_table import GaussianCopulaSynthesizer
 
@@ -122,6 +179,7 @@ def synthesize(
     # Entirely empty columns carry no information: leave them out of the model
     # and put them back empty afterwards.
     empty = [c for c in real.columns if real[c].isna().all()]
+    prepared = real.copy()
     data = real.drop(columns=empty)
     if types is None:
         from csv_synth.settings import detect_settings
@@ -150,14 +208,15 @@ def synthesize(
     # Only `category` columns: personal columns are faked, so merging them would
     # collapse all-unique values to "Other" first.
     for col in categories:
-        if not pd.api.types.is_numeric_dtype(data[col]) and not pd.api.types.is_bool_dtype(data[col]):
-            data[col] = privacy.merge_rare(data[col], rare_threshold)
+        data[col] = privacy.merge_rare(data[col], rare_threshold)
 
     # Label disguise comes after the rare merge. The mapping lives in memory only.
     disguise_rng = np.random.default_rng(seed)
     for col in categories:
         if col in disguise:
             data[col] = privacy.disguise(data[col], col, disguise_rng)
+    for col in [*categories, *id_info]:
+        prepared[col] = data[col]
 
     # Large files: learn from a random sample. Sampling comes after the rare-category
     # merge so that rarity is judged on the full data.
@@ -181,23 +240,38 @@ def synthesize(
     synthesizer.fit({"table": data})
     out = synthesizer.sample(num_rows=rows)["table"]
 
+    fake = Faker()
+    fake.seed_instance(seed)
     id_rng = random.Random(seed)
     for col, (shape, real_ids, unique) in id_info.items():
         out[col] = _renew_ids(out[col], real_ids, shape, unique, id_rng)
 
-    if texts:
-        from faker import Faker
+    # A fake value that equals a real value by chance is drawn again.
+    for col, kind in personal.items():
+        if kind != "id":
+            method = getattr(fake, _FAKER_METHOD[kind])
+            out[col] = _redraw(out[col], _real_values(real[col]), method)
 
-        fake = Faker()
-        fake.seed_instance(seed)
-        rng = random.Random(seed)
-        for col in texts:
-            lengths = text_info[col] or [40]
-            out[col] = [
-                None if rng.random() < text_null[col] else _fake_sentence(fake, rng.choice(lengths))
-                for _ in range(len(out))
-            ]
+    rng = random.Random(seed)
+    for col in texts:
+        lengths = text_info[col] or [40]
+        out[col] = [
+            None if rng.random() < text_null[col] else _fake_sentence(fake, rng.choice(lengths))
+            for _ in range(len(out))
+        ]
+        draw = lambda: _fake_sentence(fake, rng.choice(lengths))  # noqa: E731
+        out[col] = _redraw(out[col], _real_values(real[col]), draw)
+
+    # Quality score: SDV's single-table evaluation on what the model learned from
+    # (the fit sample) against the same number of synthetic rows.
+    try:
+        report = evaluate_quality(
+            data, out[list(data.columns)].head(len(data)), metadata, verbose=False
+        )
+        quality = float(report.get_score())
+    except Exception:  # the score is a bonus: never stop a run for it
+        quality = None
 
     for col in empty:
         out[col] = np.nan
-    return out[list(real.columns)]
+    return Synthesis(out[list(real.columns)], prepared, quality)

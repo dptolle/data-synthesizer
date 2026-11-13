@@ -9,8 +9,6 @@ import re
 
 import pandas as pd
 
-PERSONAL_TYPES = ("email", "name", "address", "phone", "card", "id", "text")
-
 # Share of non-empty values that must match a pattern to call the column that type.
 _MATCH_SHARE = 0.8
 
