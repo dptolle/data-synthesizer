@@ -2,12 +2,13 @@
 
 import codecs
 import random
+from dataclasses import replace
 from pathlib import Path
 from typing import Optional
 
 import typer
 
-from csv_synth import csvio, privacy, settings as settings_mod
+from csv_synth import csvio, dates, privacy, settings as settings_mod
 
 app = typer.Typer(
     help=(
@@ -54,6 +55,27 @@ def _load(file: Path, delimiter: Optional[str], encoding: Optional[str], decimal
         raise typer.Exit(1)
 
 
+def _warn_dates(real, found, settings_path: Path, mixed: bool) -> None:
+    """Warn about guessed date formats that may be wrong. Names columns only, never values."""
+    for s in found:
+        if s.type != "date" or s.action == "drop":
+            continue
+        if not s.format:
+            if mixed:
+                typer.echo(
+                    f"Warning: column `{s.column}` mixes several date styles, so its format was "
+                    f"left empty. Set the format in the Settings file {settings_path}.",
+                    err=True,
+                )
+        elif dates.is_ambiguous(real[s.column], s.format):
+            typer.echo(
+                f"Warning: the dates in column `{s.column}` could be month first or day first. "
+                f"The tool assumed month first ({s.format}). If that is wrong, "
+                f"fix the format in the Settings file {settings_path}.",
+                err=True,
+            )
+
+
 @app.command()
 def inspect(
     file: Path = typer.Argument(..., help="The Source CSV to look at."),
@@ -91,6 +113,7 @@ def inspect(
         raise typer.Exit(1)
     fmt, real = _load(file, delimiter, encoding, decimal)
     found = settings_mod.detect_settings(real)
+    _warn_dates(real, found, target, mixed=True)
     settings_mod.write_settings(found, target, fmt.delimiter)
     typer.echo(f"Wrote settings for {len(found)} columns to {target}.")
     typer.echo("Check the types in the file, then run: csv-synth generate " + str(file))
@@ -186,6 +209,12 @@ def generate(
             chosen = settings_mod.read_settings(settings_path, fmt.delimiter)
         else:
             chosen = settings_mod.detect_settings(real)
+            if disguise_all:
+                chosen = [
+                    replace(s, action="disguise") if s.type == "category" and s.action == "keep" else s
+                    for s in chosen
+                ]
+            _warn_dates(real, chosen, settings_path, mixed=False)
             # Saved before the checks, so a date format can be fixed there if they fail.
             settings_mod.write_settings(chosen, settings_path, fmt.delimiter)
         settings_mod.check_matches(chosen, real)
@@ -231,7 +260,13 @@ def generate(
             typer.echo(line, err=True)
         raise typer.Exit(1)
 
-    csvio.write_synthetic(synthetic, target, fmt)
+    replaced = csvio.write_synthetic(synthetic, target, fmt)
+    if replaced:
+        typer.echo(
+            f"Warning: {replaced} character(s) cannot be stored in the output encoding "
+            f"({fmt.encoding}) and were replaced by ?.",
+            err=True,
+        )
 
     typer.echo(
         "Faked (personal data): "

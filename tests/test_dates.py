@@ -131,3 +131,46 @@ def test_a_format_that_does_not_fit_the_values_stops(invoke, tmp_path):
 
     assert result.exit_code != 0
     assert "checkin" in result.output and "%Y-%m-%d" in result.output
+
+
+def _ambiguous(tmp_path):
+    amb = tmp_path / "amb.csv"
+    pd.DataFrame(
+        {"day": [f"{d:02d}/{m:02d}/2023" for d in range(1, 13) for m in (1, 2, 3)]}
+    ).to_csv(amb, index=False)
+    return amb
+
+
+def test_inspect_warns_about_ambiguous_slash_dates(invoke, tmp_path):
+    amb = _ambiguous(tmp_path)
+    result = invoke("inspect", amb)
+    assert result.exit_code == 0, result.output
+    assert "Warning" in result.output and "day" in result.output
+    assert "amb_settings.csv" in result.output and "%m/%d/%Y" in result.output
+    assert "01/02/2023" not in result.output
+
+
+def test_generate_warns_about_ambiguous_dates_only_when_the_format_was_guessed(invoke, tmp_path):
+    amb = _ambiguous(tmp_path)
+    first = invoke("generate", amb, "-o", tmp_path / "o1.csv", "--seed", "1")
+    assert first.exit_code == 0, first.output
+    assert "Warning" in first.output and "`day`" in first.output
+    assert "amb_settings.csv" in first.output
+
+    second = invoke("generate", amb, "-o", tmp_path / "o2.csv", "--seed", "1")
+    assert second.exit_code == 0, second.output
+    assert "month first" not in second.output
+
+
+def test_unambiguous_dates_give_no_ambiguity_warning(invoke, tmp_path):
+    src = _source(tmp_path, "%d/%m/%Y")  # days above 12 occur, only day first fits
+    result = invoke("inspect", src)
+    assert "month first" not in result.output
+
+
+def test_inspect_warns_about_mixed_date_styles(invoke, tmp_path):
+    src = _source(tmp_path, "%Y-%m-%d", mixed=True)
+    result = invoke("inspect", src)
+    assert result.exit_code == 0, result.output
+    assert "Warning" in result.output and "`checkin`" in result.output
+    assert "mix" in result.output and "stays_settings.csv" in result.output

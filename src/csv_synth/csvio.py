@@ -113,8 +113,27 @@ def read_source(path: Path, fmt: CsvFormat | None = None) -> pd.DataFrame:
         raise FormatError("The file is empty.") from exc
 
 
-def write_synthetic(df: pd.DataFrame, path: Path, fmt: CsvFormat | None = None) -> None:
+def _unencodable(text: str, encoding: str) -> int:
+    return sum(1 for ch in text if not _encodable(ch, encoding))
+
+
+def _encodable(ch: str, encoding: str) -> bool:
+    try:
+        ch.encode(encoding)
+        return True
+    except UnicodeEncodeError:
+        return False
+
+
+def write_synthetic(df: pd.DataFrame, path: Path, fmt: CsvFormat | None = None) -> int:
+    """Write the file. Returns how many characters the encoding could not hold (written as ?)."""
     fmt = fmt or CsvFormat()
+    replaced = sum(_unencodable(str(c), fmt.encoding) for c in df.columns)
+    for col in df.columns:
+        if df[col].dtype == object or pd.api.types.is_string_dtype(df[col]):
+            replaced += sum(
+                _unencodable(v, fmt.encoding) for v in df[col].dropna() if isinstance(v, str)
+            )
     # `replace` keeps a faked value with a letter the encoding lacks from stopping the run.
     df.to_csv(
         path,
@@ -125,3 +144,4 @@ def write_synthetic(df: pd.DataFrame, path: Path, fmt: CsvFormat | None = None) 
         errors="replace",
         lineterminator="\n",
     )
+    return replaced
