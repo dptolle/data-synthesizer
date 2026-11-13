@@ -128,7 +128,7 @@ The Synthetic CSV is a Structural proxy. It is safe to share and realistic enoug
 5. Disguise labels in columns marked `disguise` (or in all `category` columns with `--disguise-all`).
 6. If there are more than `--fit-rows` rows (default 100,000), take a random sample to learn from.
 7. Fit GaussianCopula and sample `--rows` rows (default: the Source CSV's row count), using `--seed`.
-8. Run the overlap check against the prepared real data. On failure, write nothing and exit non-zero.
+8. Run the overlap check against the prepared real data. On failure, write no Synthetic CSV and exit non-zero, but still write the Settings file (unless one was read), so the user can apply the suggested fix (owner decision, 2026-11-13).
 9. Write the Synthetic CSV in the Source CSV's format, then the Settings file (unless one was read), then print the summary.
 
 **Settings file**

@@ -14,3 +14,4 @@
 - [ ] `inspect` and `generate` both accept the three override options.
 - [ ] Letters like ä, é and ß survive in column names and Shared labels.
 - [ ] The Sample CSV script also writes a `;` / decimal-comma / cp1252 variant. Format tests cover each case.
+- [ ] (Added by the owner, 2026-11-13) When the privacy check fails, `generate` still writes the Settings file (unless one was read), so the user can apply the suggested fix. No Synthetic CSV is written.
