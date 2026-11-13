@@ -53,5 +53,9 @@ def make_sample(rows: int = 500, seed: int = 42) -> pd.DataFrame:
 if __name__ == "__main__":
     out = Path(sys.argv[1] if len(sys.argv) > 1 else "hotel_sample.csv")
     n = int(sys.argv[2]) if len(sys.argv) > 2 else 500
-    make_sample(n).to_csv(out, index=False)
-    print(f"Wrote {n} fake rows to {out}")
+    sample = make_sample(n)
+    sample.to_csv(out, index=False)
+    # Same rows as a European Excel export: `;`, decimal comma, cp1252.
+    messy = out.with_name(f"{out.stem}_messy{out.suffix}")
+    sample.to_csv(messy, index=False, sep=";", decimal=",", encoding="cp1252", errors="replace")
+    print(f"Wrote {n} fake rows to {out} and {messy}")
