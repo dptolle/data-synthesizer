@@ -6,7 +6,7 @@ from typing import Optional
 
 import typer
 
-from csv_synth import csvio, privacy
+from csv_synth import csvio, privacy, settings as settings_mod
 
 app = typer.Typer(
     help=(
@@ -21,6 +21,40 @@ app = typer.Typer(
 @app.callback()
 def main() -> None:
     """Make a synthetic copy of a CSV file, entirely on this computer."""
+
+
+def _default_settings(file: Path) -> Path:
+    return file.with_name(f"{file.stem}_settings.csv")
+
+
+@app.command()
+def inspect(
+    file: Path = typer.Argument(..., help="The Source CSV to look at."),
+    settings_file: Optional[Path] = typer.Option(
+        None,
+        "--settings",
+        help="Where to write the Settings file. Default: <input>_settings.csv next to the input.",
+    ),
+    force: bool = typer.Option(
+        False, "--force", help="Overwrite the Settings file if it already exists."
+    ),
+) -> None:
+    """Guess how each column is handled and write it to a Settings file you can edit."""
+    if not file.is_file():
+        typer.echo(f"Error: cannot find the file {file}.", err=True)
+        raise typer.Exit(1)
+    target = settings_file or _default_settings(file)
+    if target.exists() and not force:
+        typer.echo(
+            f"Error: {target} already exists. Use --force to overwrite it, "
+            "or --settings to choose another name.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    found = settings_mod.detect_settings(csvio.read_source(file))
+    settings_mod.write_settings(found, target)
+    typer.echo(f"Wrote settings for {len(found)} columns to {target}.")
+    typer.echo("Check the types in the file, then run: csv-synth generate " + str(file))
 
 
 @app.command()
@@ -56,6 +90,12 @@ def generate(
         min=1,
         help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 500.",
     ),
+    settings_file: Optional[Path] = typer.Option(
+        None,
+        "--settings",
+        help="Settings file. Default: <input>_settings.csv next to the input. "
+        "If it exists it is read and used, otherwise the detected settings are written there.",
+    ),
     rare_threshold: int = typer.Option(
         5,
         "--rare-threshold",
@@ -81,11 +121,27 @@ def generate(
         seed = random.SystemRandom().randrange(2**32)
     typer.echo(f"Using seed {seed} (pass --seed {seed} to repeat this run).")
 
-    from csv_synth.detect import detect_personal_columns
     from csv_synth.synth import synthesize  # SDV import is slow; keep --help fast
 
     real = csvio.read_source(file)
-    personal = detect_personal_columns(real)
+    settings_path = settings_file or _default_settings(file)
+    settings_read = settings_path.exists()
+    if settings_read:
+        try:
+            chosen = settings_mod.read_settings(settings_path)
+            settings_mod.check_matches(chosen, real)
+        except settings_mod.SettingsError as exc:
+            typer.echo(f"Error: {exc}", err=True)
+            raise typer.Exit(1)
+    else:
+        chosen = settings_mod.detect_settings(real)
+    dropped = [s.column for s in chosen if s.action == "drop"]
+    types = settings_mod.types_of_kept(chosen)
+    if not types:
+        typer.echo("Error: every column is set to drop, so there is nothing to generate.", err=True)
+        raise typer.Exit(1)
+    real = real[list(types)]
+    personal = {c: t for c, t in types.items() if t in settings_mod.FAKED_TYPES}
     total = len(real)
     out_rows = rows if rows is not None else total
     if total > fit_rows:
@@ -93,9 +149,9 @@ def generate(
             f"Note: the file is large, so the tool learns from a random sample "
             f"of {fit_rows} of {total} rows. The output still has {out_rows} rows."
         )
-    synthetic = synthesize(real, out_rows, seed, rare_threshold, personal, fit_rows)
-    # Detected personal column types (email/name/address/...) drive the overlap check.
-    findings = privacy.check_overlap(real, synthetic, dict(personal))
+    synthetic = synthesize(real, out_rows, seed, rare_threshold, types, fit_rows)
+    # The Settings file's types drive the overlap check.
+    findings = privacy.check_overlap(real, synthetic, types)
     if findings:
         typer.echo(
             "Error: the privacy check failed, so no file was written. "
@@ -107,12 +163,15 @@ def generate(
         raise typer.Exit(1)
 
     csvio.write_synthetic(synthetic, target)
+    if not settings_read:
+        settings_mod.write_settings(chosen, settings_path)
 
     typer.echo(
         "Faked (personal data): "
         + (", ".join(f"{c} ({t})" for c, t in personal.items()) or "none")
         + "."
     )
+    typer.echo("Dropped: " + (", ".join(dropped) or "none") + ".")
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
