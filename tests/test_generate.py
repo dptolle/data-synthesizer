@@ -97,21 +97,39 @@ def test_help_explains_every_option(invoke):
         assert opt in gen.output
 
 
-def test_failed_privacy_check_writes_no_file_and_exits_with_error(
-    invoke, source_csv, monkeypatch
+def test_personal_value_overlap_writes_no_file_and_exits_with_error(
+    invoke, tmp_path, monkeypatch
 ):
-    # Force a leak: a "synthesizer" that hands back real rows.
+    # Force a leak: a "synthesizer" that hands back real rows, including emails.
     import csv_synth.synth
 
+    src = tmp_path / "people.csv"
+    pd.DataFrame(
+        {"email": [f"user{i}@example.org" for i in range(20)], "n": range(20)}
+    ).to_csv(src, index=False)
     monkeypatch.setattr(csv_synth.synth, "synthesize", lambda real, rows, seed, *a: real.copy())
 
-    result = invoke("generate", source_csv)
+    result = invoke("generate", src)
 
     assert result.exit_code != 0
-    assert not (source_csv.parent / "hotel_synthetic.csv").exists()
-    assert "exact copies of real rows" in result.output
+    assert not (tmp_path / "people_synthetic.csv").exists()
+    assert "email" in result.output
     assert "Settings file" in result.output
-    assert "single" not in result.output and "suite" not in result.output
+    assert "user1@example.org" not in result.output
+
+
+def test_copied_real_rows_save_the_file_and_warn_with_count_only(invoke, tmp_path):
+    # One two-label column: synthetic rows must match real rows by chance.
+    src = tmp_path / "tiny.csv"
+    pd.DataFrame({"room": ["single", "double"] * 6}).to_csv(src, index=False)
+
+    result = invoke("generate", src, "--seed", 1)
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "tiny_synthetic.csv").exists()
+    assert "Warning" in result.output and "real row" in result.output
+    assert "single" not in result.output and "double" not in result.output
+    assert "Privacy check passed: no" not in result.output
 
 
 def test_summary_reports_privacy_check_on_success(invoke, source_csv):

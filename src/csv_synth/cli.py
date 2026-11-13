@@ -51,10 +51,10 @@ def generate(
         "Default: a random seed, which is printed.",
     ),
     fit_rows: int = typer.Option(
-        500,
+        100_000,
         "--fit-rows",
         min=1,
-        help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 500.",
+        help="Learn from a random sample of this many rows if the Source CSV is larger. Default: 100,000.",
     ),
     rare_threshold: int = typer.Option(
         5,
@@ -96,13 +96,15 @@ def generate(
     synthetic = synthesize(real, out_rows, seed, rare_threshold, personal, fit_rows)
     # Detected personal column types (email/name/address/...) drive the overlap check.
     findings = privacy.check_overlap(real, synthetic, dict(personal))
-    if findings:
+    blocking = [f for f in findings if f.blocks]
+    warnings = [f for f in findings if not f.blocks]
+    if blocking:
         typer.echo(
             "Error: the privacy check failed, so no file was written. "
             "Nothing was changed automatically.",
             err=True,
         )
-        for line in privacy.describe(findings):
+        for line in privacy.describe(blocking):
             typer.echo(line, err=True)
         raise typer.Exit(1)
 
@@ -116,4 +118,10 @@ def generate(
     typer.echo(
         f"Wrote {len(synthetic)} rows and {len(synthetic.columns)} columns to {target}."
     )
-    typer.echo("Privacy check passed: no personal values and no real rows in the output.")
+    if warnings:
+        typer.echo("Warning: the file was saved, but note:", err=True)
+        for line in privacy.describe(warnings):
+            typer.echo(line, err=True)
+        typer.echo("Privacy check passed for personal values.")
+    else:
+        typer.echo("Privacy check passed: no personal values and no real rows in the output.")

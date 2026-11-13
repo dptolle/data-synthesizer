@@ -64,6 +64,12 @@ def test_whole_real_row_is_reported_even_without_types():
     findings = check_overlap(REAL, synth, {})
 
     assert [(f.kind, f.count) for f in findings] == [("row", 1)]
+    assert not findings[0].blocks
+
+
+def test_shared_personal_values_block_but_copied_rows_only_warn():
+    findings = check_overlap(REAL, _synth(contact=["a@x.org", "q@y.net", "r@y.net"]), TYPES)
+    assert [f.blocks for f in findings] == [True]
 
 
 def test_messages_name_columns_and_suggest_fix_but_never_show_values():
